@@ -9,4 +9,5 @@ class AuctionClient:
 	def createAuction(self):
 		pass
 	
-	
+	def sendCreateAuctionRequest(self):
+		pass

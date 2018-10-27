@@ -66,6 +66,7 @@ class AuctionManager:
 		log.high_debug("Hit handleAuctionCreationRequest!")
 
 	
+		
 
 
 v = AuctionManager()
