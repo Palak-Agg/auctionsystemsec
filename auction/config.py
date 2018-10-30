@@ -11,6 +11,7 @@ RUNCFG = {
 	}
 
 def writeDefaults():
+	global CONFIG
 	CONFIG["AuctionManager"] = {
 		"IP": "127.0.0.1",
 		"PORT": 7010
@@ -25,10 +26,14 @@ def writeDefaults():
 		CONFIG.write(configFile)
 
 def loadSettings():
+	global CONFIG
+
 	if (not os.path.isfile('appSettings.ini')):
 		writeDefaults()
 
 	CONFIG.read('appSettings.ini')
+	# CONFIG["AuctionManager"]["PORT"] = int(CONFIG["AuctionManager"]["PORT"])
+	# CONFIG["AuctionRepo"]["PORT"] = int(CONFIG["AuctionRepo"]["PORT"])
 
 
 loadSettings()
