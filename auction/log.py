@@ -3,6 +3,8 @@ import time
 from datetime import datetime
 import os
 import inspect
+import config as cfg
+
 
 def info(msg, new_line=True):
 	print("{0}{1}{2}[INFO]> {3}{4}".format(
@@ -21,22 +23,38 @@ def warning(msg, new_line=True):
 		msg), end=("\n" if new_line else ""), flush=(not new_line))
 
 def error(msg, new_line=True):
-	print("{0}{1}{2}[ERROR]> {3}{4}".format(
+	print("{}{}{}[ERROR] {}{}[{} => {}]{}> {}".format(
 		Fore.WHITE,
 		time.strftime('[%H:%M:%S]'),
 		Fore.RED,
 		Fore.RESET,
+		Fore.RED,
+		# __getCallerInfo(),
+		inspect.stack()[1][1],
+		inspect.stack()[1][3],
+		Fore.RESET,
 		msg), end=("\n" if new_line else ""), flush=(not new_line))
 
-# def debug(msg, new_line=True):
-# 	print("{}{}{}[DEBUG] {}[{}]> {}".format(
-# 		Fore.WHITE,
-# 		time.strftime('[%H:%M:%S]'),
-# 		Fore.WHITE,
-# 		Fore.RESET,
-# 		__getCallerInfo(),
-# 		msg), end=("\n" if new_line else ""), flush=(not new_line))
+def high_debug(msg, new_line=True):
+	if (int(cfg.RUNCFG["verbose"]) < 2):
+		return
+
+	print("{}{}{}[HIGH_DEBUG] {}{}[{} => {}]{}> {}".format(
+		Fore.WHITE,
+		time.strftime('[%H:%M:%S]'),
+		Fore.CYAN,
+		Fore.RESET,
+		Fore.RED,
+		# __getCallerInfo(),
+		inspect.stack()[1][1],
+		inspect.stack()[1][3],
+		Fore.RESET,
+		msg), end=("\n" if new_line else ""), flush=(not new_line))
+
 def debug(msg, new_line=True):
+	if (int(cfg.RUNCFG["verbose"]) < 1):
+		return
+
 	print("{}{}{}[DEBUG]{}> {}".format(
 		Fore.WHITE,
 		time.strftime('[%H:%M:%S]'),
@@ -44,13 +62,16 @@ def debug(msg, new_line=True):
 		Fore.RESET,
 		msg), end=("\n" if new_line else ""), flush=(not new_line))
 
-def high_debug(msg, new_line=True):
-	print("{}{}{}[HIGH_DEBUG]{}> {}".format(
-		Fore.WHITE,
-		time.strftime('[%H:%M:%S]'),
-		Fore.CYAN,
-		Fore.RESET,
-		msg), end=("\n" if new_line else ""), flush=(not new_line))
+# def high_debug(msg, new_line=True):
+# 	if (int(cfg.RUNCFG["verbose"]) < 2):
+# 		return
+
+# 	print("{}{}{}[HIGH_DEBUG]{}> {}".format(
+# 		Fore.WHITE,
+# 		time.strftime('[%H:%M:%S]'),
+# 		Fore.CYAN,
+# 		Fore.RESET,
+# 		msg), end=("\n" if new_line else ""), flush=(not new_line))
 
 def log(msg, new_line):
 		print("{0}{1}{2}[INFO]> {3}{4}".format(

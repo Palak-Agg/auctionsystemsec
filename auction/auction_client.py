@@ -39,19 +39,23 @@ class AuctionClient:
 			sent_bytes = self.__socket.sendto(serialized_data.encode("UTF-8"), server_address)
 
 
-			TODO: communication is working. But only through logging
-			a mechanism should be in place to tell the 
-			calling functions of how the operation went.
+			# TODO: communication is working. But only through logging
+			# a mechanism should be in place to tell the 
+			# calling functions of how the operation went.
 
-			i.e: how will client_cli.py know that the operation
-			went as expected?
+			# i.e: how will client_cli.py know that the operation
+			# went as expected?
 
-
+			self.__socket.settimeout(2)
 			response_data, server = self.__socket.recvfrom(4096)
 			log.debug("Received {!r}".format(response_data))
 
 		# except Exception as e:
 		# 	log.error(str(e))
+
+		except skt.timeout as e:
+			log.error("No response from peer, closing socket...")
+			raise e
 
 		finally:
 			self.__socket.close()
@@ -59,9 +63,6 @@ class AuctionClient:
 		
 		if response_data != None:
 			return json.loads(response_data)
-		else:
-			log.error("Could not get a response from the server!")
-			raise Exception()
 
 
 	### Tests connectivity to the Auction Manager server ###
@@ -75,11 +76,12 @@ class AuctionClient:
 
 		# try:
 		response = self.__sendRequestAndWait("manager", data_dict)
-		return True
 
-		# except Exception as e:
-		# 	log.error(str(e))
-		# 	return False
+		return response
+
+		# except skt.timeout:
+		# 	log.error("Could not send Heartbeat to Auction Manager!")
+
 
 	### Tests connectivity to the Auction Repo server ###
 	def heartbeatAuctionRepo(self):

@@ -45,6 +45,7 @@ class AuctionManager:
 			data, address = self.__socket.recvfrom(4096)
 			decoded_data = data.decode()
 			native_data = json.loads(decoded_data)
+
 			# print(native_data)
 			log.high_debug("Received {} bytes from {}".format(
 				len(data),
@@ -56,7 +57,9 @@ class AuctionManager:
 				response_data = None
 
 				if native_data["operation"] == "heartbeat":
-					response_data = self.handleHeartbeatRequest()
+					response_data = self.handleHeartbeatRequest(native_data)
+				elif native_data["operation"] == "create-auction":
+					reponse_data = self.handleCreateAuctionRequest(native_data)
 				else:
 					log.error("Unknown operation requested!")
 
@@ -67,20 +70,13 @@ class AuctionManager:
 				# 	sent_bytes,
 				# 	address))
 				# # self.handleRequest(address, data
+				log.info("Successfully processed request from {} of operation type: {}".format(address, native_data["operation"]))
 			else:
 				log.error("Data is corrupted or client disconneted!")
 
 	### Handles incoming request and delegates accordingly
 	def handleRequest(self, address, data):
 		log.high_debug("Hit handleRequest!")
-
-	### Handles incoming heartbeat request
-	def handleHeartbeatRequest(self):
-		return {
-			"id-type": "auction-manager",
-			"packet-type": "response",
-			"operation": "heartbeat" 
-		}
 	
 	####							 	####	
 	####	Incoming request handlers	####
@@ -90,5 +86,12 @@ class AuctionManager:
 	def handleAuctionCreationRequest(self):
 		log.high_debug("Hit handleAuctionCreationRequest!")
 
+		### Handles incoming heartbeat request
+	def handleHeartbeatRequest(self, data):
+		log.high_debug("Hit handleHeartbeatRequest!")
 
-c = AuctionManager()
+		return {
+			"id-type": "auction-manager",
+			"packet-type": "response",
+			"operation": "heartbeat" 
+		}
