@@ -1,7 +1,7 @@
 import sys
 sys.path.append("auction")
 
-from auction_manager import AuctionManager
+from auction_repo import AuctionRepo
 import argparse
 # from auction_manager import AuctionManager
 # from auction_repo import AuctionRepo
@@ -14,11 +14,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-v', '--verbose', help='verbosity level', action='count', default=0)
 args = parser.parse_args()
 
-class ManagerCli:
+class RepoCli:
 
 	def __init__(self):
 		f = Figlet(font='big')
-		print(f.renderText('Manager'))
+		print(f.renderText('Repository'))
 
 		cfg.RUNCFG["verbose"] = args.verbose
 
@@ -31,6 +31,6 @@ class ManagerCli:
 		else:
 			log.warning("Only regular information will be shown.")
 
-		self.__manager = AuctionManager()
+		self.__manager = AuctionRepo()
 
-c = ManagerCli()
+c = RepoCli()

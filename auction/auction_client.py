@@ -79,6 +79,20 @@ class AuctionClient:
 
 		return response
 
+	### Tests connectivity to the Auction Repository server ###
+	def sendHeartbeatAuctionRepo(self):
+		log.high_debug("Hit sendHeartbeatAuctionRepo!")
+		data_dict = {
+			"id-type": "auction-client",
+			"packet-type": "request",
+			"operation": "heartbeat" 
+		}
+
+		response = self.__sendRequestAndWait("repo", data_dict)
+
+		return response
+
+
 		# except skt.timeout:
 		# 	log.error("Could not send Heartbeat to Auction Manager!")
 

@@ -74,10 +74,6 @@ class AuctionManager:
 			else:
 				log.error("Data is corrupted or client disconneted!")
 
-	### Handles incoming request and delegates accordingly
-	def handleRequest(self, address, data):
-		log.high_debug("Hit handleRequest!")
-	
 	####							 	####	
 	####	Incoming request handlers	####
 	####								####
@@ -86,7 +82,8 @@ class AuctionManager:
 	def handleAuctionCreationRequest(self):
 		log.high_debug("Hit handleAuctionCreationRequest!")
 
-		### Handles incoming heartbeat request
+	### Handles incoming heartbeat request
+	### data: should be a valid message of the defined protocol structure
 	def handleHeartbeatRequest(self, data):
 		log.high_debug("Hit handleHeartbeatRequest!")
 

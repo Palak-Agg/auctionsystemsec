@@ -7,6 +7,7 @@ import argparse
 # from auction_repo import AuctionRepo
 import config as cfg
 import log
+from pyfiglet import Figlet
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-v', '--verbose', help='verbosity level', action='count', default=0)
@@ -16,6 +17,9 @@ class ClientCli:
 	# __client
 
 	def __init__(self):
+		f = Figlet(font='big')
+		print(f.renderText('Client'))
+
 		cfg.RUNCFG["verbose"] = args.verbose
 
 		if args.verbose == 1:
@@ -56,6 +60,9 @@ class ClientCli:
 		try:
 			self.__client.sendHeartbeatAuctionManager()
 			log.info("Auction Manager is alive!")
+
+			self.__client.sendHeartbeatAuctionRepo()
+			log.info("Auction Repository is alive!")
 		except Exception as e:
 			log.error("Failed to sent heartbeat packet to auction manager!")
 
