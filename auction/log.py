@@ -39,15 +39,16 @@ def high_debug(msg, new_line=True):
 	if (int(cfg.RUNCFG["verbose"]) < 2):
 		return
 
-	print("{}{}{}[HIGH_DEBUG] {}{}[{} => {}]{}> {}".format(
+	print("{}{}{}[HIGH_DEBUG] {}{}[{} => {}:{}]{}> {}".format(
 		Fore.WHITE,
 		time.strftime('[%H:%M:%S]'),
 		Fore.CYAN,
 		Fore.RESET,
-		Fore.RED,
+		Fore.BLUE,
 		# __getCallerInfo(),
 		inspect.stack()[1][1],
 		inspect.stack()[1][3],
+		inspect.stack()[1][2],
 		Fore.RESET,
 		msg), end=("\n" if new_line else ""), flush=(not new_line))
 

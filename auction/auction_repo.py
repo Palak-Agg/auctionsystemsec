@@ -67,8 +67,8 @@ class AuctionRepo:
 				elif native_data["operation"] == "create-auction":
 					response_data = self.handleCreateAuctionRequest(native_data)
 
-				elif native_data["operation"] == "delete-auction":
-					response_data = self.handleDeleteAuctionRequest(native_data)				
+				elif native_data["operation"] == "terminate-auction":
+					response_data = self.handleTerminateAuctionRequest(native_data)				
 
 				elif native_data["operation"] == "list-auctions":
 					response_data = self.handleListAuctionsRequest(native_data)
@@ -85,7 +85,7 @@ class AuctionRepo:
 				# 	sent_bytes,
 				# 	address))
 				# # self.handleRequest(address, data
-				log.info("Successfully processed request from {} of operation type: {}".format(address, native_data["operation"]))
+				log.info("Operation: {} from {} => OK".format(native_data["operation"], address))
 			else:
 				log.error("Data is corrupted or client disconneted!")
 
@@ -134,18 +134,60 @@ class AuctionRepo:
 			}
 
 	### Handles incoming delete auction request
-	def handleDeleteAuctionRequest(self, data):
-		log.high_debug("Hit handleDeleteAuctionRequest!")
+	def handleTerminateAuctionRequest(self, data):
+		log.high_debug("Hit handleTerminateAuctionRequest!")
+		log.high_debug("Incoming data:" + str(data))
+		target_auct = [d for d in self.__auctionsList if d.serialNumber == data["auction-sn"] and d.isActive]
+		log.high_debug("Target auctions: " + str(target_auct))
+
+		if len(target_auct) > 1:
+			log.error("INTERNAL ERROR. Duplicate serial numbers found on auctions list.")
+			raise Exception("INTERNAL ERROR. Duplicate serial numbers found on auctions list.")
+
+		elif len(target_auct) == 1:
+			# self.__auctionsList.remove(target_auct[0])
+			target_auct[0].isActive = False
+
+			return {
+				"id-type": "auction-repo",
+				"packet-type": "response",
+				"operation": "terminate-auction"
+				
+				}
+		else:
+			return {
+				"id-type": "auction-repo",
+				"packet-type": "response",
+				"operation": "terminate-auction",
+				"operation-error": "No ACTIVE auction was found by the specified serial number!"				
+				}
+
+		### TODO: should I notify the clients the auction has been terminated?
+		### If so, how?
 
 	### Handles incoming list auctions request
 	def handleListAuctionsRequest(self, data):
 		log.high_debug("Hit handleListAuctionsRequest!")
 
-		log.high_debug(str(self.__auctionsList))
+		auctions_list = None
+
+		if data["auctions-list-filter"] == "active":
+			auctions_list = [d.__dict__() for d in self.__auctionsList if d.isActive] 
+
+		elif data["auctions-list-filter"] == "inactive":
+			auctions_list = [d.__dict__() for d in self.__auctionsList if not d.isActive] 
+			
+		else:
+			auctions_list = [d.__dict__() for d in self.__auctionsList]
+
+
+		log.high_debug(str(auctions_list))
+
+
 
 		return {
 			"id-type": "auction-repo",
 			"packet-type": "response",
-			"operation": "list-auctions" ,
-			"auctions-list": [d.__dict__() for d in self.__auctionsList]
+			"operation": "list-auctions",
+			"auctions-list": auctions_list
 			}

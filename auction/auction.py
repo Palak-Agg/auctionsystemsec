@@ -24,7 +24,7 @@ class Auction:
 		self.duration = duration
 		self.description = description
 		self.type_of_auction = typeOfAuction
-
+		self.isActive = True
 		self.__list_of_bids = []
 
 	### Create genesis block
@@ -50,5 +50,6 @@ class Auction:
 				"serialNumber": self.serialNumber,
 				"duration": self.duration,
 				"description": self.description,
-				"type_of_auction": self.type_of_auction
+				"type_of_auction": self.type_of_auction,
+				"isActive": self.isActive
 				}

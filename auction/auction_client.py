@@ -118,14 +118,16 @@ class AuctionClient:
 		return response
 
 	### Sends list auctions request to the Auction REPO
-	def sendListAuctionsRequest(self):
+	def sendListAuctionsRequest(self, auctions_filter="all"):
 		log.high_debug("Hit sendListAuctionsRequest!")
+
 
 		data_dict = {
 			"id-type": "auction-client",
 			"client-number": self.ClientID,
 			"packet-type": "request",
 			"operation": "list-auctions",
+			"auctions-list-filter": auctions_filter
 		}
 
 		log.debug(str(data_dict))
@@ -137,3 +139,21 @@ class AuctionClient:
 			raise Exception("Failed to parse auctions-list!")
 
 
+	### Sends terminate auction request to REPO
+	def sendTerminateAuctionRequest(self, serialNumber):
+		log.high_debug("Hit high_debug!")
+
+		data_dict = {
+			"id-type": "auction-client",
+			"client-number": self.ClientID,
+			"packet-type": "request",
+			"operation": "terminate-auction",
+			"auction-sn": serialNumber
+		}
+
+		response = self.__sendRequestAndWait("repo", data_dict)
+
+		if "operation-error" in response:
+			raise Exception(response["operation-error"])
+
+		return response

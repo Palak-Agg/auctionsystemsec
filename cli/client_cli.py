@@ -1,9 +1,7 @@
 from __future__ import print_function, unicode_literals
 
-
 import sys
 sys.path.append("auction")
-
 
 from auction_client import AuctionClient
 import argparse
@@ -22,6 +20,16 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-v', '--verbose', help='verbosity level', action='count', default=0)
 parser.add_argument('--clientnumber', help='sets the client number', type=int)
 args = parser.parse_args()
+
+style = style_from_dict({
+			Token.Separator: '#cc5454',
+			Token.QuestionMark: '#673ab7 bold',
+			Token.Selected: '#cc5454',  # default
+			Token.Pointer: '#673ab7 bold',
+			Token.Instruction: '',  # default
+			Token.Answer: '#f44336 bold',
+			Token.Question: '',
+		})
 
 class ClientCli:
 	# __client
@@ -61,11 +69,16 @@ class ClientCli:
 			elif cmd == "create-auction" or cmd == "ca":
 				self.handleCmdCreateAuction()
 
-			elif cmd == "delete-auction" or cmd == "da":
-				self.handleCmdDeleteAuction()
+			elif cmd == "terminate-auction" or cmd == "ta":
+				self.handleCmdTerminateAuction()
 
-			elif cmd == "list-auctions" or cmd == "la":
-				self.handleCmdListAuctions()
+			elif "list-auctions" in cmd or "la" in cmd:
+				tokens = cmd.strip().split(" ")
+
+				if len(tokens) == 2:
+					self.handleCmdListAuctions(tokens[1])
+				else:
+					self.handleCmdListAuctions()
 
 			else:
 				self.handleCmdHelp()
@@ -78,7 +91,7 @@ class ClientCli:
 	def handleCmdHelp(self):
 		print("		heartbeat OR ht => checks if auction manager and auction repository entites are alive\n \
 		create-auction OR ca => creates auction\n \
-		delete-auction OR da => deletes auction\n \
+		terminate-auction OR ta => deletes auction\n \
 		list-auction OR la => lists auctions\n \
 		create-auction OR ca => creates auction \
 				")
@@ -97,15 +110,6 @@ class ClientCli:
 
 	### Handles create auction command and all the respective user input validation
 	def handleCmdCreateAuction(self):
-		style = style_from_dict({
-			Token.Separator: '#cc5454',
-			Token.QuestionMark: '#673ab7 bold',
-			Token.Selected: '#cc5454',  # default
-			Token.Pointer: '#673ab7 bold',
-			Token.Instruction: '',  # default
-			Token.Answer: '#f44336 bold',
-			Token.Question: '',
-		})
 
 		# Ge1t auction name, description, duration and type of auction
 		questions = [
@@ -155,39 +159,71 @@ class ClientCli:
 			log.error("Failed to send create-auction request!")
 
 	### Handles delete auction command
-	def handleCmdDeleteAuction(self):
-		log.high_debug("Hit handleCmdDeleteAuction!")
+	def handleCmdTerminateAuction(self):
+		log.high_debug("Hit handleCmdTerminateAuction!")
+
+		# try:
+		# auctions = self.__client.sendListAuctionsRequest()
+		auctions = self.__client.sendListAuctionsRequest()
+
+		if (len(auctions) == 0):
+			log.info("No active auctions were found!")
+			return
+
+		log.high_debug(str([d["name"] for d in auctions]))
+		choices = [d["name"] for d in auctions]
+		questions = [
+			{
+			'type': 'rawlist',
+			'message': 'Choose the auction to terminate (only those created by you are shown)',
+			'name': 'auction',
+			'choices': [d["name"] for d in auctions],
+			'validate': lambda answer: 'You need to choose at least one auction!' \
+				if len(answer) == 0 else True
+			}
+		]
+
+		answers = prompt(questions, style=style)
+
+		auction_sn = [d["serialNumber"] for d in auctions if d["name"] == answers["auction"]]
 
 		try:
-			# auctions = self.__client.sendListAuctionsRequest()
-			print(str(auctions))
-
+			self.__client.sendTerminateAuctionRequest(auction_sn[0])
+			log.info("Successfully terminated auction!")
 		except Exception as e:
-			log.error("Failed to retrieve Auctions List!")
+			log.error("Failed to terminate Auction!\n" + str(e))
 
 	### Handles list auctions command
-	def handleCmdListAuctions(self):
+	def handleCmdListAuctions(self, auctions_filter="all"):
 		log.high_debug("Hit handleCmdListAuctions!")
 
-		try:
-			auctions = self.__client.sendListAuctionsRequest()
+		# try:
+		auctions = self.__client.sendListAuctionsRequest(auctions_filter)
 
-			print("  {:15} {:3} {:14} {:25} {:6}"
-				.format("Name", "SN", "Duration (s)", "Description", "Type"))
+		log.high_debug("Received auctions: " + str(auctions))
 
-			# Pretty print auctions list
-			for a in auctions:
-				print("  {:15} {:3} {:14} {:25} {:6}"
-					.format(
-						a["name"],
-						a["serialNumber"],
-						a["duration"],
-						a["description"],
-						a["type_of_auction"],
-						))
-			
-		except Exception as e:
-			log.error("Failed to retrieve Auctions List!\n" + str(e))
+		if (len(auctions) == 0):
+			log.info("No active auctions were found!")
+			return
+
+		print(" {:10} {:15} {:3} {:14} {:25} {:6}"
+			.format("[Active]", "Name", "SN", "Duration (s)", "Description", "Type"))
+
+		# Pretty print auctions list
+		for a in auctions:
+			print("  {:10} {:15} {:3} {:14} {:25} {:6}"
+				.format(
+					"Yes" if a["isActive"] else "No",
+					a["name"],
+					a["serialNumber"],
+					a["duration"],
+					a["description"],
+					a["type_of_auction"],
+					))
+		
+		# except Exception as e:
+		# 	log.error("Failed to retrieve Auctions List!\n" + str(e))
 
 
 c = ClientCli()
+
