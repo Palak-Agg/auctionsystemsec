@@ -117,8 +117,8 @@ class AuctionManager:
 				elif native_data["operation"] == "create-auction":
 					response_data = self.handleCreateAuctionRequest(native_data)
 
-				elif native_data["operation"] == "delete-auction":
-					response_data = self.handleDeleteAuctionRequest(native_data)
+				elif native_data["operation"] == "terminate-auction":
+					response_data = self.handleTerminateAuctionRequest(native_data)
 
 				else:
 					log.error("Unknown operation requested!")
@@ -132,7 +132,9 @@ class AuctionManager:
 				# 	sent_bytes,
 				# 	address))
 				# # self.handleRequest(address, data
-				log.info("Successfully processed request from {} of operation type: {}".format(address, native_data["operation"]))
+				# log.info("Successfully processed request from {} of operation type: {}".format(address, native_data["operation"]))
+				log.info("Operation: {} from {} => OK".format(native_data["operation"], address))
+
 			else:
 				log.error("Data is corrupted or client disconneted!")
 
@@ -179,6 +181,20 @@ class AuctionManager:
 		return repo_response
 
 	### Handles incoming delete auction request
-	def handleDeleteAuctionRequest(self, data):
+	def handleTerminateAuctionRequest(self, data):
 		log.high_debug("Hit handleDeleteAuctionRequest!")
 		
+		data["id-type"] = "auction-manager"
+
+		repo_response = self.__sendRequestAndWait("repo", data)
+
+		if not "operation-error" in repo_response:
+			log.info("Successfully terminated auction!")
+
+		else:
+			log.info("Could not terminate auction. Motive: {}".format(
+				repo_response["operation-error"]))
+
+		repo_response["id-type"] = "auction-manager"
+
+		return repo_response

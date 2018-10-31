@@ -151,7 +151,7 @@ class AuctionClient:
 			"auction-sn": serialNumber
 		}
 
-		response = self.__sendRequestAndWait("repo", data_dict)
+		response = self.__sendRequestAndWait("manager", data_dict)
 
 		if "operation-error" in response:
 			raise Exception(response["operation-error"])

@@ -117,8 +117,8 @@ class ClientCli:
 			'type': 'input',
 			'name': 'name',
 			'message': 'Choose a name for the Auction',
-			'validate': lambda answer: 'Name cannot be exceed 15 characters wide!' \
-				if len(answer) > 15 else True
+			'validate': lambda answer: 'Empty name or it exceeds 15 characters wide!' \
+				if len(answer) > 15 or len(answer) == 0 else True
 			},
 			{
 			'type': 'input',
@@ -226,4 +226,3 @@ class ClientCli:
 
 
 c = ClientCli()
-
