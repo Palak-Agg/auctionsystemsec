@@ -9,6 +9,59 @@ class AuctionManager:
 	def __init__(self):
 		self.startListening()
 
+	### TODO: this, along with every socket related operation, should probably 
+	### be an independent module, sharing functionality across all modules
+
+	### Sends content to specified target and waits
+	### for response.
+	### target: manager OR repo
+	### operation: one of the possible operation types
+	### data: content to be sent
+	def __sendRequestAndWait(self, target, data):
+		log.high_debug("Hit sendRequestAndWait!")
+		# self.__socket = skt.socket(skt.AF_INET, skt.SOCK_DGRAM)
+
+		dict_key = "AuctionRepo"
+		if (target.lower() == "manager"):
+			dict_key = "AuctionManager"
+
+		ip = cfg.CONFIG[dict_key]["IP"]
+		port = int(cfg.CONFIG[dict_key]["PORT"])
+
+		server_address = (ip, port)
+		log.debug(str(server_address))
+		response_data = None
+
+		try:
+			serialized_data = json.dumps(data)
+
+			log.debug("Sending {} bytes to {}:{}".format(
+				len(serialized_data),
+				ip,
+				port))
+
+			sent_bytes = self.__socket.sendto(serialized_data.encode("UTF-8"), server_address)
+
+			self.__socket.settimeout(2)
+			response_data, server = self.__socket.recvfrom(4096)
+			log.debug("Received {!r}".format(response_data))
+
+		# except Exception as e:
+		# 	log.error(str(e))
+
+		except skt.timeout as e:
+			log.error("No response from peer, closing socket...")
+			raise e
+
+		finally:
+			log.high_debug("Hit finally clause of __sendRequestAndWait")
+		
+		if response_data != None:
+			return json.loads(response_data)
+
+		return None
+
+
 	def startListening(self):
 		self.__IP = cfg.CONFIG["AuctionManager"]["IP"]
 
@@ -42,6 +95,8 @@ class AuctionManager:
 		log.high_debug("Hit listenLoop!")
 
 		while True:
+			# Restore socket to blocking mode
+			self.__socket.settimeout(None)
 			data, address = self.__socket.recvfrom(4096)
 			decoded_data = data.decode()
 			native_data = json.loads(decoded_data)
@@ -58,12 +113,16 @@ class AuctionManager:
 
 				if native_data["operation"] == "heartbeat":
 					response_data = self.handleHeartbeatRequest(native_data)
+
 				elif native_data["operation"] == "create-auction":
-					reponse_data = self.handleCreateAuctionRequest(native_data)
+					response_data = self.handleCreateAuctionRequest(native_data)
+
 				else:
 					log.error("Unknown operation requested!")
 
 				if response_data != None:
+					log.high_debug(str(self.__socket))
+					log.debug("Sending response to origin...")
 					self.__socket.sendto(json.dumps(response_data).encode(), address)
 
 				# log.info("Sent {} bytes as a response to {}".format(
@@ -92,3 +151,26 @@ class AuctionManager:
 			"packet-type": "response",
 			"operation": "heartbeat" 
 		}
+
+	### Handles incoming Create Auction request
+	def handleCreateAuctionRequest(self, data):
+		log.high_debug("Hit handleCreateAuctionRequest!")
+
+		log.debug(str(data))
+		# TODO: Check if data is valid!
+
+		# Replace identity type
+		data["id-type"] = "auction-manager"
+		
+		repo_response = self.__sendRequestAndWait("repo", data)
+
+		if not "operation-error" in repo_response:
+			log.info("Successfully created auction!")
+
+		else:
+			log.info("Could not create auction. Motive: {}".format(
+				repo_response["error-message"]))
+
+		repo_response["id-type"] = "auction-manager"
+
+		return repo_response

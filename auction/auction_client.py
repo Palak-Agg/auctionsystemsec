@@ -4,9 +4,15 @@ import config as cfg
 import json
 
 class AuctionClient:
+
+	### Alphanumeric string identifying the client
+	### This will be replaced by the citizen card number
+	ClientID = -1
 	
-	def __init__(self):
+	def __init__(self, clientNumber):
 		log.high_debug("Hit AuctionClient __init__!")
+		self.ClientID = clientNumber
+		log.info("Client number: " + str(self.ClientID))
 
 	### Sends content to specified target and waits
 	### for response.
@@ -38,14 +44,6 @@ class AuctionClient:
 
 			sent_bytes = self.__socket.sendto(serialized_data.encode("UTF-8"), server_address)
 
-
-			# TODO: communication is working. But only through logging
-			# a mechanism should be in place to tell the 
-			# calling functions of how the operation went.
-
-			# i.e: how will client_cli.py know that the operation
-			# went as expected?
-
 			self.__socket.settimeout(2)
 			response_data, server = self.__socket.recvfrom(4096)
 			log.debug("Received {!r}".format(response_data))
@@ -64,12 +62,15 @@ class AuctionClient:
 		if response_data != None:
 			return json.loads(response_data)
 
+		return None
+
 
 	### Tests connectivity to the Auction Manager server ###
 	def sendHeartbeatAuctionManager(self):
 		log.high_debug("Hit sendHeartbeatAuctionManager!")
 		data_dict = {
 			"id-type": "auction-client",
+			"client-number": self.ClientID,
 			"packet-type": "request",
 			"operation": "heartbeat" 
 		}
@@ -84,6 +85,7 @@ class AuctionClient:
 		log.high_debug("Hit sendHeartbeatAuctionRepo!")
 		data_dict = {
 			"id-type": "auction-client",
+			"client-number": self.ClientID,
 			"packet-type": "request",
 			"operation": "heartbeat" 
 		}
@@ -92,19 +94,26 @@ class AuctionClient:
 
 		return response
 
-
 		# except skt.timeout:
 		# 	log.error("Could not send Heartbeat to Auction Manager!")
 
+	### Sends create auction request to the Auction Manager	
+	def sendCreateAuctionRequest(self, name, description, duration, type_of_auction):
+		log.high_debug("Hit sendCreateAuctionRequest!")
 
-	### Tests connectivity to the Auction Repo server ###
-	def heartbeatAuctionRepo(self):
-		pass
+		data_dict = {
+			"id-type": "auction-client",
+			"client-number": self.ClientID,
+			"packet-type": "request",
+			"operation": "create-auction",
+			"auction-name": name,
+			"auction-description": description,
+			"auction-duration": duration,
+			"auction-type": type_of_auction
+		}
 
-	### Top level function to handle Create Auction operation
-	def createAuction(self):
-		pass
-	
-	def sendCreateAuctionRequest(self):
-		pass
+		log.debug(str(data_dict))
+		response = self.__sendRequestAndWait("manager", data_dict)
+
+		return response
 

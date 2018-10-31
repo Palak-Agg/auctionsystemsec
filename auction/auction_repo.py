@@ -58,12 +58,16 @@ class AuctionRepo:
 
 				if native_data["operation"] == "heartbeat":
 					response_data = self.handleHeartbeatRequest(native_data)
+
 				elif native_data["operation"] == "create-auction":
-					reponse_data = self.handleCreateAuctionRequest(native_data)
+					response_data = self.handleCreateAuctionRequest(native_data)
+
 				else:
 					log.error("Unknown operation requested!")
 
+				# log.high_debug("HERE: " + str(response_data))
 				if response_data != None:
+					log.debug("Sending response to origin...")
 					self.__socket.sendto(json.dumps(response_data).encode(), address)
 
 				# log.info("Sent {} bytes as a response to {}".format(
@@ -78,10 +82,6 @@ class AuctionRepo:
 	####	Incoming request handlers	####
 	####								####
 
-	### 
-	def handleAuctionCreationRequest(self):
-		log.high_debug("Hit handleAuctionCreationRequest!")
-
 	### Handles incoming heartbeat request
 	### data: should be a valid message of the defined protocol structure
 	def handleHeartbeatRequest(self, data):
@@ -92,3 +92,15 @@ class AuctionRepo:
 			"packet-type": "response",
 			"operation": "heartbeat" 
 			}
+
+	### 
+	def handleCreateAuctionRequest(self, data):
+		log.high_debug("Hit handleCreateAuctionRequest!")
+		log.debug(str(data))
+
+		return {
+			"id-type": "auction-repo",
+			"packet-type": "response",
+			"operation": "create-auction" 
+			}
+

@@ -1,2 +1,10 @@
 colorama==0.4.0
+prompt-toolkit==1.0.14
 pyfiglet==0.7.6
+Pygments==2.2.0
+#PyInquirer==1.0.2 the original repository of this package has a bug which I forked and fixed
+# The fixed version will be downloaded instead
+git+https://github.com/rodrigogonegit/PyInquirer.git
+regex==2018.8.29
+six==1.11.0
+wcwidth==0.1.7
