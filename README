@@ -1,7 +1,3 @@
 - Create virtual environment
 - Install requirements.txt packages through pip
 - Done!
-
-Note: 
-	#PyInquirer==1.0.2 the original repository of this package has a bug which I forked and fixed
-	# The fixed version will be downloaded instead
