@@ -7,8 +7,7 @@ sys.path.append("auction")
 
 from auction_client import AuctionClient
 import argparse
-# from auction_manager import AuctionManager
-# from auction_repo import AuctionRepo
+
 import config as cfg
 import log
 from pyfiglet import Figlet
@@ -62,6 +61,12 @@ class ClientCli:
 			elif cmd == "create-auction" or cmd == "ca":
 				self.handleCmdCreateAuction()
 
+			elif cmd == "delete-auction" or cmd == "da":
+				self.handleCmdDeleteAuction()
+
+			elif cmd == "list-auctions" or cmd == "la":
+				self.handleCmdListAuctions()
+
 			else:
 				self.handleCmdHelp()
 
@@ -71,7 +76,12 @@ class ClientCli:
 
 	### Handles help command
 	def handleCmdHelp(self):
-		print("HELP INFO")
+		print("		heartbeat OR ht => checks if auction manager and auction repository entites are alive\n \
+		create-auction OR ca => creates auction\n \
+		delete-auction OR da => deletes auction\n \
+		list-auction OR la => lists auctions\n \
+		create-auction OR ca => creates auction \
+				")
 
 	### Handles heartbeat command
 	def handleCmdHeartbeat(self):
@@ -111,8 +121,8 @@ class ClientCli:
 			'name': 'description',
 			'message': 'Describe the auction',
 			'default': 'Yet another auction!',
-			'validate': lambda answer: 'Description cannot be exceed 30 characters wide!' \
-				if len(answer) > 30 or len(answer.strip()) == 0 else True
+			'validate': lambda answer: 'Description cannot be exceed 25 characters wide!' \
+				if len(answer) > 25 or len(answer.strip()) == 0 else True
 			},
 			{
 			'type': 'input',
@@ -140,10 +150,44 @@ class ClientCli:
 													answers["description"], 
 													int(answers["duration"]), 
 													answers["type"])
-			log.info("Successfully created auction!")
+			log.info("Successfully created auction!")		
 		except Exception as e:
 			log.error("Failed to send create-auction request!")
 
+	### Handles delete auction command
+	def handleCmdDeleteAuction(self):
+		log.high_debug("Hit handleCmdDeleteAuction!")
+
+		try:
+			# auctions = self.__client.sendListAuctionsRequest()
+			print(str(auctions))
+
+		except Exception as e:
+			log.error("Failed to retrieve Auctions List!")
+
+	### Handles list auctions command
+	def handleCmdListAuctions(self):
+		log.high_debug("Hit handleCmdListAuctions!")
+
+		try:
+			auctions = self.__client.sendListAuctionsRequest()
+
+			print("  {:15} {:3} {:14} {:25} {:6}"
+				.format("Name", "SN", "Duration (s)", "Description", "Type"))
+
+			# Pretty print auctions list
+			for a in auctions:
+				print("  {:15} {:3} {:14} {:25} {:6}"
+					.format(
+						a["name"],
+						a["serialNumber"],
+						a["duration"],
+						a["description"],
+						a["type_of_auction"],
+						))
+			
+		except Exception as e:
+			log.error("Failed to retrieve Auctions List!\n" + str(e))
 
 
 c = ClientCli()

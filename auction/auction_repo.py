@@ -4,9 +4,14 @@ import socket as skt
 import sys
 import json
 
+from auction import Auction
+
 class AuctionRepo:
 	
 	def __init__(self):
+		self.__auctionsList = []
+		self.__auctionIndex = 0
+
 		self.startListening()
 
 	def startListening(self):
@@ -62,6 +67,12 @@ class AuctionRepo:
 				elif native_data["operation"] == "create-auction":
 					response_data = self.handleCreateAuctionRequest(native_data)
 
+				elif native_data["operation"] == "delete-auction":
+					response_data = self.handleDeleteAuctionRequest(native_data)				
+
+				elif native_data["operation"] == "list-auctions":
+					response_data = self.handleListAuctionsRequest(native_data)
+
 				else:
 					log.error("Unknown operation requested!")
 
@@ -98,9 +109,43 @@ class AuctionRepo:
 		log.high_debug("Hit handleCreateAuctionRequest!")
 		log.debug(str(data))
 
+		# TODO: VALIDATE DATA
+
+		# Generate unique serial number
+		# TODO: actually generate a unique serial number 
+
+		auction = Auction(
+			data["auction-name"],
+			self.__auctionIndex,
+			data["auction-duration"],
+			data["auction-description"],
+			data["auction-type"])
+
+		self.__auctionIndex = self.__auctionIndex + 1
+
+		self.__auctionsList.append(auction)
+
+		log.info("Successfully added auction to list!")
+
 		return {
 			"id-type": "auction-repo",
 			"packet-type": "response",
 			"operation": "create-auction" 
 			}
 
+	### Handles incoming delete auction request
+	def handleDeleteAuctionRequest(self, data):
+		log.high_debug("Hit handleDeleteAuctionRequest!")
+
+	### Handles incoming list auctions request
+	def handleListAuctionsRequest(self, data):
+		log.high_debug("Hit handleListAuctionsRequest!")
+
+		log.high_debug(str(self.__auctionsList))
+
+		return {
+			"id-type": "auction-repo",
+			"packet-type": "response",
+			"operation": "list-auctions" ,
+			"auctions-list": [d.__dict__() for d in self.__auctionsList]
+			}

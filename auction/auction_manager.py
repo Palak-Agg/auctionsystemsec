@@ -117,6 +117,9 @@ class AuctionManager:
 				elif native_data["operation"] == "create-auction":
 					response_data = self.handleCreateAuctionRequest(native_data)
 
+				elif native_data["operation"] == "delete-auction":
+					response_data = self.handleDeleteAuctionRequest(native_data)
+
 				else:
 					log.error("Unknown operation requested!")
 
@@ -174,3 +177,8 @@ class AuctionManager:
 		repo_response["id-type"] = "auction-manager"
 
 		return repo_response
+
+	### Handles incoming delete auction request
+	def handleDeleteAuctionRequest(self, data):
+		log.high_debug("Hit handleDeleteAuctionRequest!")
+		

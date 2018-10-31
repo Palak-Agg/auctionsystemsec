@@ -23,7 +23,7 @@ class Auction:
 		self.serialNumber = sn
 		self.duration = duration
 		self.description = description
-		self.typeOfAuction = typeOfAuction
+		self.type_of_auction = typeOfAuction
 
 		self.__list_of_bids = []
 
@@ -43,3 +43,12 @@ class Auction:
 		bid = Bid(clientId, auctionSN, bidValue, len(self.__list_of_bids), date.datetime.now(), previous_hash)
 
 		self.__list_of_bids.append(bid)
+
+	def __dict__(self):
+		return {
+				"name": self.name,
+				"serialNumber": self.serialNumber,
+				"duration": self.duration,
+				"description": self.description,
+				"type_of_auction": self.type_of_auction
+				}

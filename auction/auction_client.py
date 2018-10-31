@@ -117,3 +117,23 @@ class AuctionClient:
 
 		return response
 
+	### Sends list auctions request to the Auction REPO
+	def sendListAuctionsRequest(self):
+		log.high_debug("Hit sendListAuctionsRequest!")
+
+		data_dict = {
+			"id-type": "auction-client",
+			"client-number": self.ClientID,
+			"packet-type": "request",
+			"operation": "list-auctions",
+		}
+
+		log.debug(str(data_dict))
+		response = self.__sendRequestAndWait("repo", data_dict)
+
+		if "auctions-list" in response:
+			return response["auctions-list"]
+		else:
+			raise Exception("Failed to parse auctions-list!")
+
+
