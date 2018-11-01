@@ -143,6 +143,11 @@ class AuctionClient:
 	def sendTerminateAuctionRequest(self, serialNumber):
 		log.high_debug("Hit high_debug!")
 
+		try:
+			serialNumber = int(serialNumber)
+		except ValueError as e:
+			log.error("Invalid data type! Serial Number must be an integer!")
+
 		data_dict = {
 			"id-type": "auction-client",
 			"client-number": self.ClientID,

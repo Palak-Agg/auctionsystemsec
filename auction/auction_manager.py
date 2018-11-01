@@ -133,7 +133,7 @@ class AuctionManager:
 				# 	address))
 				# # self.handleRequest(address, data
 				# log.info("Successfully processed request from {} of operation type: {}".format(address, native_data["operation"]))
-				log.info("Operation: {} from {} => OK".format(native_data["operation"], address))
+				# log.info("Operation: {} from {} => OK".format(native_data["operation"], address))
 
 			else:
 				log.error("Data is corrupted or client disconneted!")
@@ -150,6 +150,7 @@ class AuctionManager:
 	### data: should be a valid message of the defined protocol structure
 	def handleHeartbeatRequest(self, data):
 		log.high_debug("Hit handleHeartbeatRequest!")
+		log.info("Operation: {} from client-number:  {} => OK".format(data["operation"], data["client-number"]))
 
 		return {
 			"id-type": "auction-manager",
@@ -170,11 +171,16 @@ class AuctionManager:
 		repo_response = self.__sendRequestAndWait("repo", data)
 
 		if not "operation-error" in repo_response:
-			log.info("Successfully created auction!")
+			log.info("Operation: {} from client-number: {} => OK [ADDED auction: {}]".format(
+				data["operation"], 
+				data["client-number"],
+				data["auction-name"]))
 
 		else:
-			log.info("Could not create auction. Motive: {}".format(
-				repo_response["error-message"]))
+			log.info("Operation: {} from client-number: {} => FAILED [Could NOT add auction: {}]".format(
+				data["operation"], 
+				data["client-number"],
+				data["auction-name"]))
 
 		repo_response["id-type"] = "auction-manager"
 
@@ -189,11 +195,16 @@ class AuctionManager:
 		repo_response = self.__sendRequestAndWait("repo", data)
 
 		if not "operation-error" in repo_response:
-			log.info("Successfully terminated auction!")
+			log.info("Operation: {} from client-number: {} => OK [TERMINATED auction-sn: {}]".format(
+				data["operation"], 
+				data["client-number"],
+				data["auction-sn"]))
 
 		else:
-			log.info("Could not terminate auction. Motive: {}".format(
-				repo_response["operation-error"]))
+			log.info("Operation: {} from client-number:  {} => FAILED [Could NOT find  ACTIVE auction-sn {}]".format(
+				data["operation"], 
+				data["client-number"],
+				data["auction-sn"]))
 
 		repo_response["id-type"] = "auction-manager"
 

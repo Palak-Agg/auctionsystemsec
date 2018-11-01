@@ -170,14 +170,16 @@ class ClientCli:
 			log.info("No active auctions were found!")
 			return
 
-		log.high_debug(str([d["name"] for d in auctions]))
-		choices = [d["name"] for d in auctions]
+		log.high_debug(str(auctions))
+
+		# Join serial number and name as the name may not be unique
+		choices = [str(d["serialNumber"]) + " -> " + d["name"] for d in auctions]
 		questions = [
 			{
 			'type': 'rawlist',
 			'message': 'Choose the auction to terminate (only those created by you are shown)',
 			'name': 'auction',
-			'choices': [d["name"] for d in auctions],
+			'choices': choices,
 			'validate': lambda answer: 'You need to choose at least one auction!' \
 				if len(answer) == 0 else True
 			}
@@ -185,11 +187,17 @@ class ClientCli:
 
 		answers = prompt(questions, style=style)
 
-		auction_sn = [d["serialNumber"] for d in auctions if d["name"] == answers["auction"]]
+		# Get the id portion of the string
+		serialNumber = answers["auction"].split(" -> ")[0].strip()
+
+		log.high_debug("SERIAL NUMBER: " + str(serialNumber))
+
+		# auction_sn = [d["serialNumber"] for d in auctions if d["name"] == serialNumber]
 
 		try:
-			self.__client.sendTerminateAuctionRequest(auction_sn[0])
+			self.__client.sendTerminateAuctionRequest(serialNumber)
 			log.info("Successfully terminated auction!")
+
 		except Exception as e:
 			log.error("Failed to terminate Auction!\n" + str(e))
 
@@ -218,8 +226,7 @@ class ClientCli:
 					a["serialNumber"],
 					a["duration"],
 					a["description"],
-					a["type_of_auction"],
-					))
+					a["type_of_auction"]))
 		
 		# except Exception as e:
 		# 	log.error("Failed to retrieve Auctions List!\n" + str(e))

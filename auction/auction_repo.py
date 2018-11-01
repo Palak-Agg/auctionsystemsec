@@ -85,9 +85,9 @@ class AuctionRepo:
 				# 	sent_bytes,
 				# 	address))
 				# # self.handleRequest(address, data
-				log.info("Operation: {} from {} => OK".format(native_data["operation"], address))
+				# log.info("Operation: {} from {} => OK".format(native_data["operation"], address))
 			else:
-				log.error("Data is corrupted or client disconneted!")
+				log.error("Internal socket error!!!")
 
 	####							 	####	
 	####	Incoming request handlers	####
@@ -97,6 +97,8 @@ class AuctionRepo:
 	### data: should be a valid message of the defined protocol structure
 	def handleHeartbeatRequest(self, data):
 		log.high_debug("Hit handleHeartbeatRequest!")
+
+		log.info("Operation: {} from client-number:  {} => OK".format(data["operation"], data["client-number"]))
 
 		return {
 			"id-type": "auction-manager",
@@ -125,7 +127,10 @@ class AuctionRepo:
 
 		self.__auctionsList.append(auction)
 
-		log.info("Successfully added auction to list!")
+		log.info("Operation: {} from client-number: {} => OK [ADDED auction: {}]".format(
+			data["operation"], 
+			data["client-number"],
+			data["auction-name"]))
 
 		return {
 			"id-type": "auction-repo",
@@ -148,6 +153,11 @@ class AuctionRepo:
 			# self.__auctionsList.remove(target_auct[0])
 			target_auct[0].isActive = False
 
+			log.info("Operation: {} from client-number: {} => OK [TERMINATED auction: {}]".format(
+				data["operation"], 
+				data["client-number"],
+				target_auct[0].name))
+
 			return {
 				"id-type": "auction-repo",
 				"packet-type": "response",
@@ -155,6 +165,11 @@ class AuctionRepo:
 				
 				}
 		else:
+			log.info("Operation: {} from client-number:  {} => FAILED [Could NOT find  ACTIVE auction {}]".format(
+				data["operation"], 
+				data["client-number"],
+				data["auction-sn"]))
+
 			return {
 				"id-type": "auction-repo",
 				"packet-type": "response",
@@ -176,14 +191,15 @@ class AuctionRepo:
 
 		elif data["auctions-list-filter"] == "inactive":
 			auctions_list = [d.__dict__() for d in self.__auctionsList if not d.isActive] 
-			
+
 		else:
 			auctions_list = [d.__dict__() for d in self.__auctionsList]
 
-
 		log.high_debug(str(auctions_list))
 
-
+		log.info("Operation: {} from client-number: {} => OK ".format(
+			data["operation"], 
+			data["client-number"]))
 
 		return {
 			"id-type": "auction-repo",
