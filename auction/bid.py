@@ -47,14 +47,24 @@ class Bid:
 	### Hash this block's data
 	def hash_block(self):
 		sha = hasher.sha256()
-		sha.update(str(self.clientId) + 
+		sha.update((str(self.clientId) + 
 					str(self.auctionSN) + 
 					str(self.bidValue) + 
 					str(self.index) + 
 					str(self.timestamp) + 
-					str(self.previous_hash))
+					str(self.previous_hash)).encode("UTF-8"))
 
 		return sha.hexdigest()
+
+	def __dict__(self):
+		return {
+				"clientId": self.clientId,
+				"auctionSN": self.auctionSN,
+				"bidValue": self.bidValue,
+				"index": self.index,
+				"previous_hash": self.previous_hash,
+				"block_hash": self.block_hash
+				}
 
 
 

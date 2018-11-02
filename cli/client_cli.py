@@ -79,6 +79,8 @@ class ClientCli:
 					self.handleCmdListAuctions(tokens[1])
 				else:
 					self.handleCmdListAuctions()
+			elif "bid":
+				self.handleCmdBid()
 
 			else:
 				self.handleCmdHelp()
@@ -154,9 +156,10 @@ class ClientCli:
 													answers["description"], 
 													int(answers["duration"]), 
 													answers["type"])
-			log.info("Successfully created auction!")		
+			log.info("Successfully created auction!")
+
 		except Exception as e:
-			log.error("Failed to send create-auction request!")
+			log.error("Failed to send create-auction request!\n " + str(e))
 
 	### Handles delete auction command
 	def handleCmdTerminateAuction(self):
@@ -230,6 +233,48 @@ class ClientCli:
 		
 		# except Exception as e:
 		# 	log.error("Failed to retrieve Auctions List!\n" + str(e))
+
+	### Handles bit on auction command
+	def handleCmdBid(self):
+		auctions = self.__client.sendListAuctionsRequest()
+
+		if (len(auctions) == 0):
+			log.info("No active auctions were found!")
+			return
+
+		log.high_debug(str(auctions))
+
+		# Join serial number and name as the name may not be unique
+		choices = [str(d["serialNumber"]) + " -> " + d["name"] for d in auctions]
+		questions = [
+			{
+			'type': 'rawlist',
+			'message': 'Choose the auction to bid on',
+			'name': 'auction',
+			'choices': choices,
+			'validate': lambda answer: 'You need to choose at least one auction!' \
+				if len(answer) == 0 else True
+			},
+			{
+			'type': 'input',
+			'name': 'bid',
+			'default': '10',
+			'message': 'Set the BID value!',
+			'validate': lambda dur: 'Invalid number. Must be greater than 0!' \
+				if (not IsInt(dur) or int(dur) <= 0) else True
+			}
+		]
+
+		answers = prompt(questions, style=style)
+
+		# Get the id portion of the string
+		serialNumber = answers["auction"].split(" -> ")[0].strip()
+
+		try:
+			self.__client.sendCreateBidRequest(serialNumber, answers["bid"])
+			log.info("Successfully created bid!")
+		except Exception as e:
+			log.warning(str(e))
 
 
 c = ClientCli()

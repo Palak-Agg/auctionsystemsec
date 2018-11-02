@@ -3,8 +3,14 @@ import config as cfg
 import socket as skt
 import sys
 import json
+import threading
+import time
+import datetime
+import traceback
 
 from auction import Auction
+
+lock = threading.Lock()
 
 class AuctionRepo:
 	
@@ -12,7 +18,60 @@ class AuctionRepo:
 		self.__auctionsList = []
 		self.__auctionIndex = 0
 
+		self.__checkAuctionsThread = threading.Thread(target=self.checkAuctionsDurationLoop)
+		self.__checkAuctionsThread.start()
+
 		self.startListening()
+
+	### Sends content to specified target and waits
+	### for response.
+	### target: manager OR repo
+	### operation: one of the possible operation types
+	### data: content to be sent
+	def __sendRequestAndWait(self, target, data):
+		log.high_debug("Hit sendRequestAndWait!")
+		# self.__socket = skt.socket(skt.AF_INET, skt.SOCK_DGRAM)
+
+		dict_key = "AuctionRepo"
+		if (target.lower() == "manager"):
+			dict_key = "AuctionManager"
+
+		ip = cfg.CONFIG[dict_key]["IP"]
+		port = int(cfg.CONFIG[dict_key]["PORT"])
+
+		server_address = (ip, port)
+		log.high_debug(str(server_address))
+		response_data = None
+
+		try:
+			serialized_data = json.dumps(data)
+
+			log.high_debug("Sending {} bytes to {}:{}".format(
+				len(serialized_data),
+				ip,
+				port))
+
+			sent_bytes = self.__socket.sendto(serialized_data.encode("UTF-8"), server_address)
+
+			self.__socket.settimeout(2)
+			response_data, server = self.__socket.recvfrom(4096)
+			log.high_debug("Received {!r}".format(response_data))
+
+		# except Exception as e:
+		# 	log.error(str(e))
+
+		except skt.timeout as e:
+			log.error("No response from peer, closing socket...")
+			raise e
+
+		finally:
+			log.high_debug("Hit finally clause of __sendRequestAndWait")
+		
+		if response_data != None:
+			return json.loads(response_data)
+
+		return None
+
 
 	def startListening(self):
 		self.__IP = cfg.CONFIG["AuctionRepo"]["IP"]
@@ -30,7 +89,7 @@ class AuctionRepo:
 		# Bind socket to the port
 		server_address = (self.__IP, self.__PORT)
 
-		log.debug("Trying to listening on {0}:{1}".format(
+		log.high_debug("Trying to listening on {0}:{1}".format(
 			self.__IP,
 			self.__PORT))
 
@@ -47,6 +106,7 @@ class AuctionRepo:
 		log.high_debug("Hit listenLoop!")
 
 		while True:
+			self.__socket.settimeout(None)
 			data, address = self.__socket.recvfrom(4096)
 			decoded_data = data.decode()
 			native_data = json.loads(decoded_data)
@@ -73,12 +133,15 @@ class AuctionRepo:
 				elif native_data["operation"] == "list-auctions":
 					response_data = self.handleListAuctionsRequest(native_data)
 
+				elif native_data["operation"] == "create-bid":
+					response_data = self.handleCreateBidRequest(native_data)
+
 				else:
 					log.error("Unknown operation requested!")
 
 				# log.high_debug("HERE: " + str(response_data))
 				if response_data != None:
-					log.debug("Sending response to origin...")
+					log.high_debug("Sending response to origin...")
 					self.__socket.sendto(json.dumps(response_data).encode(), address)
 
 				# log.info("Sent {} bytes as a response to {}".format(
@@ -89,9 +152,52 @@ class AuctionRepo:
 			else:
 				log.error("Internal socket error!!!")
 
+	### Checks auction termination date indefinitely (runs on its own thread) 
+	def checkAuctionsDurationLoop(self):
+		log.high_debug("Hit checkAuctionsDurationLoop!")
+
+		while True:
+			lock.acquire()
+
+			for a in [d for d in self.__auctionsList if d.isActive]:
+				if a.endTime < time.time():
+					a.isActive = False
+					log.info("Auction \'{}\' with SN:{} set to terminate on {} has reached an end.".format(
+						a.name,
+						a.serialNumber,
+						datetime.datetime.utcfromtimestamp(a.endTime)))
+
+			lock.release()
+
+			time.sleep(.500)
+
 	####							 	####	
 	####	Incoming request handlers	####
 	####								####
+
+	### Builds default parameters of response packet
+	def buildResponse(self, operation, params=None):
+		data_dict = {
+			"id-type": "auction-repo",
+			"packet-type": "response",
+			"operation": operation 
+		}
+		if params != None:
+			data_dict.update(params)
+
+		return data_dict
+
+	### Builds default parameters of request packet
+	def buildRequest(self, operation, params=None):
+		data_dict = {
+			"id-type": "auction-repo",
+			"packet-type": "request",
+			"operation": operation 
+		}
+		if params != None:
+			data_dict.update(params)
+
+		return data_dict
 
 	### Handles incoming heartbeat request
 	### data: should be a valid message of the defined protocol structure
@@ -100,11 +206,7 @@ class AuctionRepo:
 
 		log.info("Operation: {} from client-number:  {} => OK".format(data["operation"], data["client-number"]))
 
-		return {
-			"id-type": "auction-manager",
-			"packet-type": "response",
-			"operation": "heartbeat" 
-			}
+		return self.buildResponse("heartbeat")
 
 	### 
 	def handleCreateAuctionRequest(self, data):
@@ -120,30 +222,34 @@ class AuctionRepo:
 			data["auction-name"],
 			self.__auctionIndex,
 			data["auction-duration"],
+			time.time(),
 			data["auction-description"],
 			data["auction-type"])
 
 		self.__auctionIndex = self.__auctionIndex + 1
 
+		lock.acquire()
 		self.__auctionsList.append(auction)
+		lock.release()
 
 		log.info("Operation: {} from client-number: {} => OK [ADDED auction: {}]".format(
 			data["operation"], 
 			data["client-number"],
 			data["auction-name"]))
 
-		return {
-			"id-type": "auction-repo",
-			"packet-type": "response",
-			"operation": "create-auction" 
-			}
+		return self.buildResponse("create-auction")
 
 	### Handles incoming delete auction request
 	def handleTerminateAuctionRequest(self, data):
 		log.high_debug("Hit handleTerminateAuctionRequest!")
 		log.high_debug("Incoming data:" + str(data))
+
+		lock.acquire()
 		target_auct = [d for d in self.__auctionsList if d.serialNumber == data["auction-sn"] and d.isActive]
+		lock.release()
 		log.high_debug("Target auctions: " + str(target_auct))
+
+		params = None
 
 		if len(target_auct) > 1:
 			log.error("INTERNAL ERROR. Duplicate serial numbers found on auctions list.")
@@ -158,24 +264,18 @@ class AuctionRepo:
 				data["client-number"],
 				target_auct[0].name))
 
-			return {
-				"id-type": "auction-repo",
-				"packet-type": "response",
-				"operation": "terminate-auction"
-				
-				}
+			# Operation OK, no need for additional parameters on response
 		else:
-			log.info("Operation: {} from client-number:  {} => FAILED [Could NOT find  ACTIVE auction {}]".format(
+			log.error("Operation: {} from client-number:  {} => FAILED [Could NOT find  ACTIVE auction {}]".format(
 				data["operation"], 
 				data["client-number"],
 				data["auction-sn"]))
 
-			return {
-				"id-type": "auction-repo",
-				"packet-type": "response",
-				"operation": "terminate-auction",
+			params = {
 				"operation-error": "No ACTIVE auction was found by the specified serial number!"				
 				}
+
+		return self.buildResponse("terminate-auction", params)
 
 		### TODO: should I notify the clients the auction has been terminated?
 		### If so, how?
@@ -186,6 +286,7 @@ class AuctionRepo:
 
 		auctions_list = None
 
+		lock.acquire()
 		if data["auctions-list-filter"] == "active":
 			auctions_list = [d.__dict__() for d in self.__auctionsList if d.isActive] 
 
@@ -195,15 +296,74 @@ class AuctionRepo:
 		else:
 			auctions_list = [d.__dict__() for d in self.__auctionsList]
 
+		lock.release()
+
 		log.high_debug(str(auctions_list))
 
 		log.info("Operation: {} from client-number: {} => OK ".format(
 			data["operation"], 
 			data["client-number"]))
 
-		return {
-			"id-type": "auction-repo",
-			"packet-type": "response",
-			"operation": "list-auctions",
-			"auctions-list": auctions_list
+		return self.buildResponse("list-auctions", {"auctions-list": auctions_list})
+
+	### Handles incoming create bid request
+	def handleCreateBidRequest(self, data):
+		log.high_debug("Hit handleCreateBidRequest!")
+		log.debug("Data: " + str(data))
+
+		# Ask manager to validate bid
+		request_params = {
+			"auction-sn": data["auction-sn"],
+			"client-number": data["client-number"],
+			"bid-value": data["bid-value"]
 			}
+
+		request_data_dict = self.buildRequest("validate-bid", request_params)
+
+		validate_response = self.__sendRequestAndWait("manager", request_data_dict)
+
+		response_params = None
+
+		if validate_response["bid-is-valid"] == False:
+			# Return right away if not valid
+			response_params = {"operation-error": "Bid did not pass the validation process by the Auction Manager!"}
+			return self.buildResponse("create-bid", response_params)
+
+		log.debug("Auction Manager validated bid...")
+
+		try:
+			auction_sn = int(data["auction-sn"])
+			matched_auctions = [d for d in self.__auctionsList if d.serialNumber == auction_sn and d.isActive]
+
+			if len(matched_auctions) == 0:
+
+				log.error("Operation: {} from client-number: {} => FAILED [{}] ".format(
+					data["operation"], 
+					data["client-number"],
+					"No ACTIVE auctions were found by SN!"))				
+
+				response_params = {"operation-error": "No ACTIVE auctions were found by that Serial Number!"}
+
+			else:
+				target_auction = matched_auctions[0]
+
+				target_auction.addNewBid(data["client-number"], data["bid-value"])
+
+				log.high_debug(target_auction)
+
+				log.info("Operation: {} from client-number: {} => OK [Bid of: {} on auction-sn: {}]".format(
+					data["operation"], 
+					data["client-number"],
+					data["bid-value"],
+					data["auction-sn"]))	
+
+		except Exception as e:
+			log.error("Operation: {} from client-number: {} => FAILED [] ".format(
+				data["operation"], 
+				data["client-number"]))				
+			response_params = {"operation-error": "A server internal error occured!"}
+
+			log.error(str(e))
+
+		return self.buildResponse("create-bid", response_params)
+

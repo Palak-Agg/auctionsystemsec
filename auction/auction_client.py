@@ -64,16 +64,23 @@ class AuctionClient:
 
 		return None
 
-
-	### Tests connectivity to the Auction Manager server ###
-	def sendHeartbeatAuctionManager(self):
-		log.high_debug("Hit sendHeartbeatAuctionManager!")
+	def buildRequest(self, operation, params=None):
 		data_dict = {
 			"id-type": "auction-client",
 			"client-number": self.ClientID,
 			"packet-type": "request",
-			"operation": "heartbeat" 
+			"operation": operation 
 		}
+		if params != None:
+			data_dict.update(params)
+
+		return data_dict
+
+
+	### Tests connectivity to the Auction Manager server ###
+	def sendHeartbeatAuctionManager(self):
+		log.high_debug("Hit sendHeartbeatAuctionManager!")
+		data_dict = self.buildRequest("heartbeat")
 
 		# try:
 		response = self.__sendRequestAndWait("manager", data_dict)
@@ -83,12 +90,7 @@ class AuctionClient:
 	### Tests connectivity to the Auction Repository server ###
 	def sendHeartbeatAuctionRepo(self):
 		log.high_debug("Hit sendHeartbeatAuctionRepo!")
-		data_dict = {
-			"id-type": "auction-client",
-			"client-number": self.ClientID,
-			"packet-type": "request",
-			"operation": "heartbeat" 
-		}
+		data_dict = self.buildRequest("heartbeat")
 
 		response = self.__sendRequestAndWait("repo", data_dict)
 
@@ -101,40 +103,36 @@ class AuctionClient:
 	def sendCreateAuctionRequest(self, name, description, duration, type_of_auction):
 		log.high_debug("Hit sendCreateAuctionRequest!")
 
-		data_dict = {
-			"id-type": "auction-client",
-			"client-number": self.ClientID,
-			"packet-type": "request",
-			"operation": "create-auction",
+		params = {
 			"auction-name": name,
 			"auction-description": description,
 			"auction-duration": duration,
 			"auction-type": type_of_auction
 		}
 
+		data_dict = self.buildRequest("create-auction", params)
+
 		log.debug(str(data_dict))
 		response = self.__sendRequestAndWait("manager", data_dict)
-
+		log.high_debug("RESPONSE:" + str(response))
 		return response
 
 	### Sends list auctions request to the Auction REPO
 	def sendListAuctionsRequest(self, auctions_filter="all"):
 		log.high_debug("Hit sendListAuctionsRequest!")
 
-
-		data_dict = {
-			"id-type": "auction-client",
-			"client-number": self.ClientID,
-			"packet-type": "request",
-			"operation": "list-auctions",
+		params = {
 			"auctions-list-filter": auctions_filter
 		}
+
+		data_dict = self.buildRequest("list-auctions", params)
 
 		log.debug(str(data_dict))
 		response = self.__sendRequestAndWait("repo", data_dict)
 
 		if "auctions-list" in response:
 			return response["auctions-list"]
+
 		else:
 			raise Exception("Failed to parse auctions-list!")
 
@@ -145,20 +143,45 @@ class AuctionClient:
 
 		try:
 			serialNumber = int(serialNumber)
+
+			params = {
+				"auction-sn": serialNumber
+			}
+
+			data_dict = self.buildRequest("terminate-auction", params)
+
+			response = self.__sendRequestAndWait("manager", data_dict)
+
+			if "operation-error" in response:
+				raise Exception(response["operation-error"])
+			return response
+
 		except ValueError as e:
 			log.error("Invalid data type! Serial Number must be an integer!")
 
-		data_dict = {
-			"id-type": "auction-client",
-			"client-number": self.ClientID,
-			"packet-type": "request",
-			"operation": "terminate-auction",
-			"auction-sn": serialNumber
-		}
+	### Sends create bid request
+	def sendCreateBidRequest(self, auctionSN, bidValue):
+		log.high_debug("Hit sendCreateBidRequest!")
 
-		response = self.__sendRequestAndWait("manager", data_dict)
+		try:
+			auctionSN = int(auctionSN)
+			bidValue = int(bidValue)
 
-		if "operation-error" in response:
-			raise Exception(response["operation-error"])
+			params = {
+				"auction-sn": auctionSN,
+				"bid-value": bidValue
+			}
 
-		return response
+			data_dict = self.buildRequest("create-bid", params)
+
+			log.high_debug("Data: " + str(data_dict))
+
+			response = self.__sendRequestAndWait("repo", data_dict)
+
+			if "operation-error" in response:
+				raise Exception(response["operation-error"])
+
+			return response
+
+		except ValueError as e:
+			log.error("Invalid data type! Serial number and bid value must be integers!")

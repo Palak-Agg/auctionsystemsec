@@ -5,9 +5,15 @@ import sys
 import json
 
 class AuctionManager:
-	
 	def __init__(self):
+		self.__stop_listening = False
+
+	def startWorking(self):
 		self.startListening()
+
+	def stopWorking(self):
+		log.high_debug("Asking loop to return...")
+		self.__stop_listening = True
 
 	### TODO: this, along with every socket related operation, should probably 
 	### be an independent module, sharing functionality across all modules
@@ -95,9 +101,17 @@ class AuctionManager:
 		log.high_debug("Hit listenLoop!")
 
 		while True:
+
+			# Check if we've been asked to stop listening
+			if self.__stop_listening:
+				log.high_debug("STOPPING listenLoop!")
+				return None
+
 			# Restore socket to blocking mode
 			self.__socket.settimeout(None)
+			# try:
 			data, address = self.__socket.recvfrom(4096)
+
 			decoded_data = data.decode()
 			native_data = json.loads(decoded_data)
 
@@ -120,12 +134,15 @@ class AuctionManager:
 				elif native_data["operation"] == "terminate-auction":
 					response_data = self.handleTerminateAuctionRequest(native_data)
 
+				elif native_data["operation"] == "validate-bid":
+					response_data = self.handleBidValidationRequest(native_data)
+
 				else:
 					log.error("Unknown operation requested!")
 
 				if response_data != None:
-					log.high_debug(str(self.__socket))
-					log.debug("Sending response to origin...")
+					# log.high_debug(str(self.__socket))
+					log.high_debug("Sending response to origin...")
 					self.__socket.sendto(json.dumps(response_data).encode(), address)
 
 				# log.info("Sent {} bytes as a response to {}".format(
@@ -141,6 +158,18 @@ class AuctionManager:
 	####							 	####	
 	####	Incoming request handlers	####
 	####								####
+
+	### Builds default parameters of response packet
+	def buildResponse(self, operation, params=None):
+		data_dict = {
+			"id-type": "auction-manager",
+			"packet-type": "response",
+			"operation": operation 
+		}
+		if params != None:
+			data_dict.update(params)
+
+		return data_dict
 
 	### 
 	def handleAuctionCreationRequest(self):
@@ -209,3 +238,18 @@ class AuctionManager:
 		repo_response["id-type"] = "auction-manager"
 
 		return repo_response
+
+	### Handles incoming create bid request
+	def handleBidValidationRequest(self, data):
+		log.high_debug("Hit handleBidValidationRequest!")
+
+		response = self.buildResponse("validate-bid", {"bid-is-valid": True})
+
+		log.info("Operation: {} from Auction Repo => OK [Client-SN: {} Auction SN: {} Bid Value: {}]".format(
+			data["operation"], 
+			data["client-number"],
+			data["auction-sn"],
+			data["bid-value"]))
+
+
+		return response
