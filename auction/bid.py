@@ -66,5 +66,6 @@ class Bid:
 				"block_hash": self.block_hash
 				}
 
-
+	def __str__(self):
+		return str(self.__dict__())
 

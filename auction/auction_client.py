@@ -67,7 +67,7 @@ class AuctionClient:
 	def buildRequest(self, operation, params=None):
 		data_dict = {
 			"id-type": "auction-client",
-			"client-number": self.ClientID,
+			"client-sn": self.ClientID,
 			"packet-type": "request",
 			"operation": operation 
 		}
@@ -185,3 +185,25 @@ class AuctionClient:
 
 		except ValueError as e:
 			log.error("Invalid data type! Serial number and bid value must be integers!")
+
+	### Sends list bids request to repo
+	def sendListBidsRequest(self, bids_filter="client", auction_sn=None):
+		log.high_debug("Hit sendListParticipatedInAuctions!")
+
+		if bids_filter == "auction" and auction_sn == None:
+			log.error("No auction serial number specified!")
+			return None
+
+		params = {"bids-list-filter": bids_filter, "auction-sn": auction_sn}
+
+		data_dict = self.buildRequest("list-bids", params)
+
+		log.high_debug("Data: " + str(data_dict))
+
+		response = self.__sendRequestAndWait("repo", data_dict)
+
+		if "operation-error" in response:
+			raise Exception(response["operation-error"])
+
+		return response
+

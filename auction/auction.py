@@ -29,7 +29,10 @@ class Auction:
 		self.isActive = True
 		self.__list_of_bids = []
 
+		self.__winningBid = None
 		self.endTime = float(duration) + createTime
+
+		self.createGenesisBlock()
 
 	### Create genesis block
 	def createGenesisBlock(self):
@@ -48,9 +51,22 @@ class Auction:
 
 		self.__list_of_bids.append(bid)
 
-	def bidsList(self):
-		return self.__list_of_bids
+	### Retrives the bid object with the highest bid value
+	def getWinningBid(self):
+		# This shouldn't happen
+		if not self.isActive:
+			return None
 
+		if self.__winningBid == None:
+			self.__winningBid = max(self.__list_of_bids, lambda bid: bid.bidValue)
+		
+		return self.__winningBid
+
+	### Simple wrapper to get all bids
+	def bidsList(self):
+		return self.__list_of_bids[1:]
+
+	### Serialiazable representation of the object
 	def __dict__(self):
 		return {
 				"name": self.name,

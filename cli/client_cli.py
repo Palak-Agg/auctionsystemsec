@@ -79,6 +79,15 @@ class ClientCli:
 					self.handleCmdListAuctions(tokens[1])
 				else:
 					self.handleCmdListAuctions()
+
+			elif "list-bids" in cmd or "lb" in cmd:
+				tokens = cmd.strip().split(" ")
+
+				if len(tokens) == 2:
+					self.handleCmdListBids(tokens[1])
+				else:
+					self.handleCmdListbids()
+
 			elif "bid":
 				self.handleCmdBid()
 
@@ -273,8 +282,55 @@ class ClientCli:
 		try:
 			self.__client.sendCreateBidRequest(serialNumber, answers["bid"])
 			log.info("Successfully created bid!")
+
 		except Exception as e:
 			log.warning(str(e))
+
+	### Handles list bids command, filtered by client-sn or all 
+	def handleCmdListBids(self, bids_filter="client"):
+		log.high_debug("Hit handleCmdListBids!")
+
+		try:					
+			# Retrieve list for later use
+			auctions = self.__client.sendListAuctionsRequest()
+
+			# if bids_filter == "client":
+			# 	
+			serial_number = None
+
+			if bids_filter == "auction":
+				# Join serial number and name as the name may not be unique
+				choices = [str(d["serialNumber"]) + " -> " + d["name"] for d in auctions]
+				questions = [
+					{
+					'type': 'rawlist',
+					'message': 'Choose the auction you want to peek',
+					'name': 'auction',
+					'choices': choices,
+					'validate': lambda answer: 'You need to choose at least one auction!' \
+						if len(answer) == 0 else True
+					}]
+
+				answers = prompt(questions, style=style)
+
+				# Get the id portion of the string
+				serial_number = answers["auction"].split(" -> ")[0].strip()
+
+			response = self.__client.sendListBidsRequest(bids_filter, serial_number)
+
+			bids = response["bids-list"]
+
+			print(" {:10} {:10} {:5} {:3}"
+				.format("Client-SN", "Auction-SN", "Index", "Value"))
+
+			for b in bids:
+				print(" {:10} {:10} {:5} {:3}"
+					.format(b["clientId"], b["auctionSN"], b["index"], b["bidValue"]))
+
+
+			# log.debug(bids)
+		except Exception as e:
+			log.error(str(e))
 
 
 c = ClientCli()

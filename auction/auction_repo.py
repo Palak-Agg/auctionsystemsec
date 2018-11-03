@@ -136,9 +136,13 @@ class AuctionRepo:
 				elif native_data["operation"] == "create-bid":
 					response_data = self.handleCreateBidRequest(native_data)
 
+				elif native_data["operation"] == "list-bids":
+					response_data = self.handleListBidsRequest(native_data)
+
 				else:
 					log.error("Unknown operation requested!")
 
+				log.high_debug("Processed request...")
 				# log.high_debug("HERE: " + str(response_data))
 				if response_data != None:
 					log.high_debug("Sending response to origin...")
@@ -166,6 +170,9 @@ class AuctionRepo:
 						a.name,
 						a.serialNumber,
 						datetime.datetime.utcfromtimestamp(a.endTime)))
+
+					### Determine who won. There's no need to do this now, but it makes sense
+					a.getWinningBid()
 
 			lock.release()
 
@@ -204,7 +211,7 @@ class AuctionRepo:
 	def handleHeartbeatRequest(self, data):
 		log.high_debug("Hit handleHeartbeatRequest!")
 
-		log.info("Operation: {} from client-number:  {} => OK".format(data["operation"], data["client-number"]))
+		log.info("Operation: {} from client-sn:  {} => OK".format(data["operation"], data["client-sn"]))
 
 		return self.buildResponse("heartbeat")
 
@@ -232,9 +239,9 @@ class AuctionRepo:
 		self.__auctionsList.append(auction)
 		lock.release()
 
-		log.info("Operation: {} from client-number: {} => OK [ADDED auction: {}]".format(
+		log.info("Operation: {} from client-sn: {} => OK [ADDED auction: {}]".format(
 			data["operation"], 
-			data["client-number"],
+			data["client-sn"],
 			data["auction-name"]))
 
 		return self.buildResponse("create-auction")
@@ -259,16 +266,16 @@ class AuctionRepo:
 			# self.__auctionsList.remove(target_auct[0])
 			target_auct[0].isActive = False
 
-			log.info("Operation: {} from client-number: {} => OK [TERMINATED auction: {}]".format(
+			log.info("Operation: {} from client-sn: {} => OK [TERMINATED auction: {}]".format(
 				data["operation"], 
-				data["client-number"],
+				data["client-sn"],
 				target_auct[0].name))
 
 			# Operation OK, no need for additional parameters on response
 		else:
-			log.error("Operation: {} from client-number:  {} => FAILED [Could NOT find  ACTIVE auction {}]".format(
+			log.error("Operation: {} from client-sn:  {} => FAILED [Could NOT find  ACTIVE auction {}]".format(
 				data["operation"], 
-				data["client-number"],
+				data["client-sn"],
 				data["auction-sn"]))
 
 			params = {
@@ -284,27 +291,29 @@ class AuctionRepo:
 	def handleListAuctionsRequest(self, data):
 		log.high_debug("Hit handleListAuctionsRequest!")
 
-		auctions_list = None
-
+		auctions_list = []
+		params = {}
+		
 		lock.acquire()
 		if data["auctions-list-filter"] == "active":
 			auctions_list = [d.__dict__() for d in self.__auctionsList if d.isActive] 
 
 		elif data["auctions-list-filter"] == "inactive":
-			auctions_list = [d.__dict__() for d in self.__auctionsList if not d.isActive] 
+			auctions_list = [d.__dict__() for d in self.__auctionsList if not d.isActive]
 
 		else:
 			auctions_list = [d.__dict__() for d in self.__auctionsList]
 
-		lock.release()
-
+		params["auctions-list"] = auctions_list
 		log.high_debug(str(auctions_list))
 
-		log.info("Operation: {} from client-number: {} => OK ".format(
-			data["operation"], 
-			data["client-number"]))
+		lock.release()
 
-		return self.buildResponse("list-auctions", {"auctions-list": auctions_list})
+		log.info("Operation: {} from client-sn: {} => OK ".format(
+			data["operation"], 
+			data["client-sn"]))
+
+		return self.buildResponse("list-auctions", params)
 
 	### Handles incoming create bid request
 	def handleCreateBidRequest(self, data):
@@ -314,7 +323,7 @@ class AuctionRepo:
 		# Ask manager to validate bid
 		request_params = {
 			"auction-sn": data["auction-sn"],
-			"client-number": data["client-number"],
+			"client-sn": data["client-sn"],
 			"bid-value": data["bid-value"]
 			}
 
@@ -337,9 +346,9 @@ class AuctionRepo:
 
 			if len(matched_auctions) == 0:
 
-				log.error("Operation: {} from client-number: {} => FAILED [{}] ".format(
+				log.error("Operation: {} from client-sn: {} => FAILED [{}] ".format(
 					data["operation"], 
-					data["client-number"],
+					data["client-sn"],
 					"No ACTIVE auctions were found by SN!"))				
 
 				response_params = {"operation-error": "No ACTIVE auctions were found by that Serial Number!"}
@@ -347,23 +356,75 @@ class AuctionRepo:
 			else:
 				target_auction = matched_auctions[0]
 
-				target_auction.addNewBid(data["client-number"], data["bid-value"])
+				target_auction.addNewBid(data["client-sn"], data["bid-value"])
 
 				log.high_debug(target_auction)
 
-				log.info("Operation: {} from client-number: {} => OK [Bid of: {} on auction-sn: {}]".format(
+				log.info("Operation: {} from client-sn: {} => OK [Bid of: {} on auction-sn: {}]".format(
 					data["operation"], 
-					data["client-number"],
+					data["client-sn"],
 					data["bid-value"],
 					data["auction-sn"]))	
 
 		except Exception as e:
-			log.error("Operation: {} from client-number: {} => FAILED [] ".format(
+			log.error("Operation: {} from client-sn: {} => FAILED [] ".format(
 				data["operation"], 
-				data["client-number"]))				
+				data["client-sn"]))				
 			response_params = {"operation-error": "A server internal error occured!"}
 
 			log.error(str(e))
 
 		return self.buildResponse("create-bid", response_params)
+
+	### Handles incoming request to list bids filtered by client-sn or auction-sn
+	def handleListBidsRequest(self, data):
+		log.high_debug("Hit handleListBidsRequest!")
+		bids_list = []
+
+		params = {}
+
+		if data["bids-list-filter"] == "client":
+			for a in self.__auctionsList:
+				bids_client_sn = [d.clientId for d in a.bidsList()]
+
+				if int(data["client-sn"]) in bids_client_sn:
+					bids_list = bids_list + a.bidsList()
+					# log.high_debug("BID:" + )
+
+		elif data["bids-list-filter"] == "auction":
+			log.high_debug("HIT AUCTION FILTER")
+
+			auction_sn = int(data["auction-sn"])
+
+			target_auction = [d for d in self.__auctionsList if d.serialNumber == auction_sn]
+
+			if len(target_auction) > 1:
+				log.error("INTERNAL ERROR. Duplicate serial numbers found on auctions list.")
+				raise Exception("INTERNAL ERROR. Duplicate serial numbers found on auctions list.")
+
+			elif len(target_auction) == 1:
+				target_auction = target_auction[0]
+				bids_list = target_auction.bidsList()
+
+				log.info("Operation: {} from client-sn: {} => OK [#Bids: {}]".format(
+					data["operation"], 
+					data["client-sn"],
+					len(bids_list)))
+
+				# Operation OK, no need for additional parameters on response
+			else:
+				log.error("Operation: {} from client-sn:  {} => FAILED [Could NOT find  ACTIVE auction {}]".format(
+					data["operation"], 
+					data["client-sn"],
+					data["auction-sn"]))
+
+				params = {
+					"operation-error": "No ACTIVE auction was found by the specified serial number!"				
+					}
+
+		params["bids-list"] = [d.__dict__() for d in bids_list]	
+
+		log.high_debug(params["bids-list"])
+
+		return self.buildResponse("list-bids", params)
 

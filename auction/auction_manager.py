@@ -179,7 +179,7 @@ class AuctionManager:
 	### data: should be a valid message of the defined protocol structure
 	def handleHeartbeatRequest(self, data):
 		log.high_debug("Hit handleHeartbeatRequest!")
-		log.info("Operation: {} from client-number:  {} => OK".format(data["operation"], data["client-number"]))
+		log.info("Operation: {} from client-sn:  {} => OK".format(data["operation"], data["client-sn"]))
 
 		return {
 			"id-type": "auction-manager",
@@ -200,15 +200,15 @@ class AuctionManager:
 		repo_response = self.__sendRequestAndWait("repo", data)
 
 		if not "operation-error" in repo_response:
-			log.info("Operation: {} from client-number: {} => OK [ADDED auction: {}]".format(
+			log.info("Operation: {} from client-sn: {} => OK [ADDED auction: {}]".format(
 				data["operation"], 
-				data["client-number"],
+				data["client-sn"],
 				data["auction-name"]))
 
 		else:
-			log.info("Operation: {} from client-number: {} => FAILED [Could NOT add auction: {}]".format(
+			log.info("Operation: {} from client-sn: {} => FAILED [Could NOT add auction: {}]".format(
 				data["operation"], 
-				data["client-number"],
+				data["client-sn"],
 				data["auction-name"]))
 
 		repo_response["id-type"] = "auction-manager"
@@ -224,15 +224,15 @@ class AuctionManager:
 		repo_response = self.__sendRequestAndWait("repo", data)
 
 		if not "operation-error" in repo_response:
-			log.info("Operation: {} from client-number: {} => OK [TERMINATED auction-sn: {}]".format(
+			log.info("Operation: {} from client-sn: {} => OK [TERMINATED auction-sn: {}]".format(
 				data["operation"], 
-				data["client-number"],
+				data["client-sn"],
 				data["auction-sn"]))
 
 		else:
-			log.info("Operation: {} from client-number:  {} => FAILED [Could NOT find  ACTIVE auction-sn {}]".format(
+			log.info("Operation: {} from client-sn:  {} => FAILED [Could NOT find  ACTIVE auction-sn {}]".format(
 				data["operation"], 
-				data["client-number"],
+				data["client-sn"],
 				data["auction-sn"]))
 
 		repo_response["id-type"] = "auction-manager"
@@ -247,7 +247,7 @@ class AuctionManager:
 
 		log.info("Operation: {} from Auction Repo => OK [Client-SN: {} Auction SN: {} Bid Value: {}]".format(
 			data["operation"], 
-			data["client-number"],
+			data["client-sn"],
 			data["auction-sn"],
 			data["bid-value"]))
 
