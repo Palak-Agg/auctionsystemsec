@@ -58,6 +58,10 @@ class ClientCli:
 			print(">",end="",flush=True)
 			cmd = input().lower().strip()
 
+			tokens = cmd.split(" ")
+
+			cmd = tokens[0]
+			
 			if cmd == "help":
 				self.handleCmdHelp()
 			elif cmd == "":
@@ -73,22 +77,19 @@ class ClientCli:
 				self.handleCmdTerminateAuction()
 
 			elif "list-auctions" in cmd or "la" in cmd:
-				tokens = cmd.strip().split(" ")
-
 				if len(tokens) == 2:
 					self.handleCmdListAuctions(tokens[1])
 				else:
 					self.handleCmdListAuctions()
 
 			elif "list-bids" in cmd or "lb" in cmd:
-				tokens = cmd.strip().split(" ")
 
 				if len(tokens) == 2:
 					self.handleCmdListBids(tokens[1])
 				else:
 					self.handleCmdListbids()
 
-			elif "bid":
+			elif cmd == "bid":
 				self.handleCmdBid()
 
 			else:

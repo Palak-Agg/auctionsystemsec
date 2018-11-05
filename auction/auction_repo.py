@@ -106,6 +106,7 @@ class AuctionRepo:
 		log.high_debug("Hit listenLoop!")
 
 		while True:
+			log.info("Listening...")
 			self.__socket.settimeout(None)
 			data, address = self.__socket.recvfrom(4096)
 			decoded_data = data.decode()
@@ -384,13 +385,11 @@ class AuctionRepo:
 		params = {}
 
 		if data["bids-list-filter"] == "client":
+			client_sn = int(data["client-sn"])
+
 			for a in self.__auctionsList:
-				bids_client_sn = [d.clientId for d in a.bidsList()]
-
-				if int(data["client-sn"]) in bids_client_sn:
-					bids_list = bids_list + a.bidsList()
-					# log.high_debug("BID:" + )
-
+				bids_list = bids_list + [d for d in a.bidsList() if d.clientId == client_sn]
+				
 		elif data["bids-list-filter"] == "auction":
 			log.high_debug("HIT AUCTION FILTER")
 

@@ -106,6 +106,8 @@ class AuctionManager:
 			if self.__stop_listening:
 				log.high_debug("STOPPING listenLoop!")
 				return None
+				
+			log.info("Listening...")
 
 			# Restore socket to blocking mode
 			self.__socket.settimeout(None)
