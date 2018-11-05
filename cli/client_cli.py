@@ -61,7 +61,7 @@ class ClientCli:
 			tokens = cmd.split(" ")
 
 			cmd = tokens[0]
-			
+
 			if cmd == "help":
 				self.handleCmdHelp()
 			elif cmd == "":
@@ -91,6 +91,9 @@ class ClientCli:
 
 			elif cmd == "bid":
 				self.handleCmdBid()
+
+			elif cmd == "check-auction" or "cka" in cmd:
+				self.handleCmdCheckAuctionOutcome()
 
 			else:
 				self.handleCmdHelp()
@@ -252,10 +255,23 @@ class ClientCli:
 			log.info("No active auctions were found!")
 			return
 
-		log.high_debug(str(auctions))
+		log.high_debug("Auctions [raw]: " + str(auctions))
 
 		# Join serial number and name as the name may not be unique
-		choices = [str(d["serialNumber"]) + " -> " + d["name"] for d in auctions]
+		choices = []
+
+		for d in auctions:
+			if not d["isActive"]:
+				continue 
+
+			if d["type_of_auction"] == "English":
+				choices.append("{}  -> {} [Min:{}]".format(
+					str(d["serialNumber"]), d["name"], d["highestBid"]["bidValue"] if d["highestBid"] != None else "0"))
+
+			else:
+				choices.append("{} -> {}".format(
+					str(d["serialNumber"]), d["name"]))				
+
 		questions = [
 			{
 			'type': 'rawlist',
@@ -268,7 +284,7 @@ class ClientCli:
 			{
 			'type': 'input',
 			'name': 'bid',
-			'default': '10',
+			'default': lambda a: self.getMinValue(choices, a["auction"], auctions),
 			'message': 'Set the BID value!',
 			'validate': lambda dur: 'Invalid number. Must be greater than 0!' \
 				if (not IsInt(dur) or int(dur) <= 0) else True
@@ -281,11 +297,24 @@ class ClientCli:
 		serialNumber = answers["auction"].split(" -> ")[0].strip()
 
 		try:
+			# if int(answers["bid"]) <= 
 			self.__client.sendCreateBidRequest(serialNumber, answers["bid"])
 			log.info("Successfully created bid!")
 
 		except Exception as e:
 			log.warning(str(e))
+
+	def getMinValue(self, choices, answer, auctions):
+		# Get the id portion of the string
+		serial_number = int(answer.split(" -> ")[0].strip())
+
+		target_auction = [d for d in auctions if d["serialNumber"] == serial_number][0]
+
+		if target_auction["type_of_auction"] == "Blind":
+			return "1"
+
+		log.high_debug(target_auction)
+		return str(int(target_auction["minBidValue"])+1)		
 
 	### Handles list bids command, filtered by client-sn or all 
 	def handleCmdListBids(self, bids_filter="client"):
@@ -332,6 +361,39 @@ class ClientCli:
 			# log.debug(bids)
 		except Exception as e:
 			log.error(str(e))
+
+	# Handles check auction outcome command
+	def handleCmdCheckAuctionOutcome(self):
+		log.high_debug("Hit handleCmdCheckAuctionOutcome!")
+
+		auctions = self.__client.sendListAuctionsRequest("active")
+
+		if (len(auctions) == 0):
+			log.info("No active auctions were found!")
+			return
+
+		log.high_debug(str(auctions))
+
+		# Join serial number and name as the name may not be unique
+		choices = [str(d["serialNumber"]) + " -> " + d["name"] for d in auctions]
+		questions = [
+			{
+			'type': 'rawlist',
+			'message': 'Choose the auction to bid on',
+			'name': 'auction',
+			'choices': choices,
+			'validate': lambda answer: 'You need to choose at least one auction!' \
+				if len(answer) == 0 else True
+			}]
+
+		answers = prompt(questions, style=style)
+
+		# Get the id portion of the string
+		serial_number = answers["auction"].split(" -> ")[0].strip()
+
+		# TODO: finish this
+		auction = self.__client.sendCheckAuctionOutcomeRequest(serial_number)
+
 
 
 c = ClientCli()

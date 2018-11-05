@@ -253,5 +253,4 @@ class AuctionManager:
 			data["auction-sn"],
 			data["bid-value"]))
 
-
 		return response

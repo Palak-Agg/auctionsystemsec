@@ -194,7 +194,7 @@ class AuctionClient:
 			log.error("No auction serial number specified!")
 			return None
 
-		params = {"bids-list-filter": bids_filter, "auction-sn": auction_sn}
+		params = { "bids-list-filter": bids_filter, "auction-sn": auction_sn }
 
 		data_dict = self.buildRequest("list-bids", params)
 
@@ -206,4 +206,8 @@ class AuctionClient:
 			raise Exception(response["operation-error"])
 
 		return response
+
+	# Sends check auction outcome request to manager
+	def sendCheckAuctionOutcomeRequest(self, auction_sn):
+		log.high_debug("Hit sendCheckAuctionOutcomeRequest!")
 

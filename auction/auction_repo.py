@@ -339,6 +339,7 @@ class AuctionRepo:
 			response_params = {"operation-error": "Bid did not pass the validation process by the Auction Manager!"}
 			return self.buildResponse("create-bid", response_params)
 
+
 		log.debug("Auction Manager validated bid...")
 
 		try:
@@ -356,21 +357,33 @@ class AuctionRepo:
 
 			else:
 				target_auction = matched_auctions[0]
+				log.high_debug(target_auction.getMinBidValue())
+				# Check if greater than min
+				if target_auction.type_of_auction == "English" and int(data["bid-value"]) <= target_auction.getMinBidValue():
+					response_params = {"operation-error": "Bid value is less or equal than the minimum value"}
 
-				target_auction.addNewBid(data["client-sn"], data["bid-value"])
+					log.info("Operation: {} from client-sn: {} => FAILED [Bid of: {} on auction-sn: {} <= MIN value]".format(
+						data["operation"], 
+						data["client-sn"],
+						data["bid-value"],
+						data["auction-sn"]))	
 
-				log.high_debug(target_auction)
+				else:
+					target_auction.addNewBid(data["client-sn"], data["bid-value"])
 
-				log.info("Operation: {} from client-sn: {} => OK [Bid of: {} on auction-sn: {}]".format(
-					data["operation"], 
-					data["client-sn"],
-					data["bid-value"],
-					data["auction-sn"]))	
+					log.high_debug(target_auction)
+
+					log.info("Operation: {} from client-sn: {} => OK [Bid of: {} on auction-sn: {}]".format(
+						data["operation"], 
+						data["client-sn"],
+						data["bid-value"],
+						data["auction-sn"]))	
 
 		except Exception as e:
-			log.error("Operation: {} from client-sn: {} => FAILED [] ".format(
+			log.error("Operation: {} from client-sn: {} => FAILED [{}] ".format(
 				data["operation"], 
-				data["client-sn"]))				
+				data["client-sn"],
+				str(e)))				
 			response_params = {"operation-error": "A server internal error occured!"}
 
 			log.error(str(e))

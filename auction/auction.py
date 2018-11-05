@@ -53,14 +53,38 @@ class Auction:
 
 	### Retrives the bid object with the highest bid value
 	def getWinningBid(self):
-		# This shouldn't happen
+		if not self.isActive or len(self.__list_of_bids) == 1:
+			return None
+
+		if self.type_of_auction == "English":
+			# Ignore genesis
+			self.__winningBid = max(self.__list_of_bids[1:], key=(lambda bid: bid.bidValue))
+
+		else:
+			# Ignore genesis
+			self.__winningBid = self.__list_of_bids[1:][-1]
+
+		return self.__winningBid
+
+	def getMinBidValue(self):
 		if not self.isActive:
 			return None
 
-		if self.__winningBid == None:
-			self.__winningBid = max(self.__list_of_bids, lambda bid: bid.bidValue)
-		
-		return self.__winningBid
+		elif len(self.__list_of_bids) == 1:
+			return 0
+
+		bid = None
+		if self.type_of_auction == "English":
+			# Ignore genesis
+			bid = max(self.__list_of_bids[1:], key=(lambda bid: bid.bidValue))
+
+		else:
+			# Ignore genesis
+			bid = self.__list_of_bids[1:][-1]
+
+		return bid.bidValue if bid != None else 0
+
+
 
 	### Simple wrapper to get all bids
 	def bidsList(self):
@@ -68,6 +92,11 @@ class Auction:
 
 	### Serialiazable representation of the object
 	def __dict__(self):
+		highestBid = self.getWinningBid()
+
+		if highestBid != None:
+			highestBid = highestBid.__dict__()
+
 		return {
 				"name": self.name,
 				"serialNumber": self.serialNumber,
@@ -75,6 +104,8 @@ class Auction:
 				"description": self.description,
 				"type_of_auction": self.type_of_auction,
 				"isActive": self.isActive,
+				"highestBid": highestBid,
+				"minBidValue": self.getMinBidValue(),
 				"bids": [d.__dict__() for d in self.__list_of_bids]
 				}
 
