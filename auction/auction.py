@@ -74,7 +74,7 @@ class Auction:
 			return 0
 
 		bid = None
-		if self.type_of_auction == "English":
+		if self.type_of_auction == "Blind":
 			# Ignore genesis
 			bid = max(self.__list_of_bids[1:], key=(lambda bid: bid.bidValue))
 
