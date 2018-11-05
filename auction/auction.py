@@ -53,7 +53,7 @@ class Auction:
 
 	### Retrives the bid object with the highest bid value
 	def getWinningBid(self):
-		if not self.isActive or len(self.__list_of_bids) == 1:
+		if len(self.__list_of_bids) == 1:
 			return None
 
 		if self.type_of_auction == "English":

@@ -302,16 +302,28 @@ class AuctionRepo:
 		elif data["auctions-list-filter"] == "inactive":
 			auctions_list = [d.__dict__() for d in self.__auctionsList if not d.isActive]
 
+		elif data["auctions-list-filter"] == "client-outcome":
+			log.high_debug("HIT CLIENT OUTCOME FILTER")
+			for a in self.__auctionsList:
+				if a.isActive:
+					continue
+				# log.high_debug("DONE")
+				# log.high_debug(a.bidsList())
+				# log.high_debug([b.clientId for b in a.bidsList()])
+				if int(data["client-sn"]) in [b.clientId for b in a.bidsList()]:
+					auctions_list.append(a.__dict__())
+
 		else:
 			auctions_list = [d.__dict__() for d in self.__auctionsList]
 
 		params["auctions-list"] = auctions_list
-		log.high_debug(str(auctions_list))
+		log.high_debug("AUCTIONS:" + str(auctions_list))
 
 		lock.release()
 
-		log.info("Operation: {} from client-sn: {} => OK ".format(
-			data["operation"], 
+		log.info("Operation: {} with filter: {} from client-sn: {} => OK ".format(
+			data["operation"],
+			data["auctions-list-filter"], 
 			data["client-sn"]))
 
 		return self.buildResponse("list-auctions", params)
@@ -404,7 +416,6 @@ class AuctionRepo:
 				bids_list = bids_list + [d for d in a.bidsList() if d.clientId == client_sn]
 				
 		elif data["bids-list-filter"] == "auction":
-			log.high_debug("HIT AUCTION FILTER")
 
 			auction_sn = int(data["auction-sn"])
 
@@ -439,4 +450,3 @@ class AuctionRepo:
 		log.high_debug(params["bids-list"])
 
 		return self.buildResponse("list-bids", params)
-

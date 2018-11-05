@@ -270,7 +270,7 @@ class ClientCli:
 
 			else:
 				choices.append("{} -> {}".format(
-					str(d["serialNumber"]), d["name"]))				
+					str(d["serialNumber"]), d["name"]))
 
 		questions = [
 			{
@@ -366,7 +366,7 @@ class ClientCli:
 	def handleCmdCheckAuctionOutcome(self):
 		log.high_debug("Hit handleCmdCheckAuctionOutcome!")
 
-		auctions = self.__client.sendListAuctionsRequest("active")
+		auctions = self.__client.sendListAuctionsRequest("client-outcome")
 
 		if (len(auctions) == 0):
 			log.info("No active auctions were found!")
@@ -379,21 +379,32 @@ class ClientCli:
 		questions = [
 			{
 			'type': 'rawlist',
-			'message': 'Choose the auction to bid on',
+			'message': 'Choose the auction whose outcome you want to see',
 			'name': 'auction',
 			'choices': choices,
-			'validate': lambda answer: 'You need to choose at least one auction!' \
+			'validate': lambda answer: 'You need to choose ONE auction!' \
 				if len(answer) == 0 else True
 			}]
 
 		answers = prompt(questions, style=style)
 
 		# Get the id portion of the string
-		serial_number = answers["auction"].split(" -> ")[0].strip()
+		serial_number = int(answers["auction"].split(" -> ")[0].strip())
 
 		# TODO: finish this
-		auction = self.__client.sendCheckAuctionOutcomeRequest(serial_number)
+		# auction = self.__client.sendCheckAuctionOutcomeRequest(serial_number)
 
+		target_auction = [d for d in auctions if d["serialNumber"] == serial_number][0]
+
+		if target_auction["highestBid"] != None:
+
+			print("Client with SN: {} won Auction '{}' [SN:{}] with bid value of {}".format(
+				target_auction["highestBid"]["clientId"],
+				target_auction["name"],
+				target_auction["serialNumber"],
+				target_auction["highestBid"]["bidValue"]))
+		else:
+			print ("Nobody bet on Auction '{}'".format(target_auction["name"]))
 
 
 c = ClientCli()
