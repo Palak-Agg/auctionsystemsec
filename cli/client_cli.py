@@ -82,18 +82,29 @@ class ClientCli:
 				else:
 					self.handleCmdListAuctions()
 
-			elif "list-bids" in cmd or "lb" in cmd:
+			elif "list-bids" in cmd or cmd == "lb":
 
 				if len(tokens) == 2:
 					self.handleCmdListBids(tokens[1])
 				else:
 					self.handleCmdListbids()
 
+			elif "list-bids-client" in cmd or "lbc" in cmd:
+
+				self.handleCmdListClientBids()
+
+			elif "list-bids-auction" in cmd or "lba" in cmd:
+
+				self.handleCmdListAuctionBids()
+
 			elif cmd == "bid":
 				self.handleCmdBid()
 
 			elif cmd == "check-auction" or "cka" in cmd:
 				self.handleCmdCheckAuctionOutcome()
+
+			elif "validate-receipt" in cmd or "vr" in cmd:
+				self.handleValidateReceipt()
 
 			else:
 				self.handleCmdHelp()
@@ -108,6 +119,7 @@ class ClientCli:
 		create-auction OR ca => creates auction\n \
 		terminate-auction OR ta => deletes auction\n \
 		list-auction OR la => lists auctions\n \
+		list-bids-client => lbc \
 		create-auction OR ca => creates auction \
 				")
 
@@ -155,7 +167,7 @@ class ClientCli:
 			'type': 'rawlist',
 			'message': 'What\'s the auction type?',
 			'name': 'type',
-			'choices': ["English", "Blind"],
+			'choices': ["English", "Blind - CLEAR identity", "Blind - HIDDEN identity"],
 			'validate': lambda answer: 'You must choose only one type of auction!' \
 				if len(answer) > 1 else True
 			}
@@ -164,15 +176,28 @@ class ClientCli:
 
 		answers = prompt(questions, style=style)
 
-		try:
-			self.__client.sendCreateAuctionRequest(answers["name"], 
-													answers["description"], 
-													int(answers["duration"]), 
-													answers["type"])
+		# Refactor?
+		if "Blind" in answers["type"]:
+			if "CLEAR" in answers["type"]:
+				answers["type"] = "Blind_Clear_Identity"
+
+			elif "HIDDEN" in answers["type"]:
+				answers["type"] = "Blind_Hidden_Identity"
+
+
+		# try:
+		response = self.__client.sendCreateAuctionRequest(answers["name"], 
+												answers["description"], 
+												int(answers["duration"]), 
+												answers["type"])
+		if not "operation-error" in response:
 			log.info("Successfully created auction!")
 
-		except Exception as e:
-			log.error("Failed to send create-auction request!\n " + str(e))
+		else:
+			log.error(response["operation-error"])
+
+		# except Exception as e:
+		# log.error("Failed to send create-auction request!\n " + str(e))
 
 	### Handles delete auction command
 	def handleCmdTerminateAuction(self):
@@ -265,12 +290,21 @@ class ClientCli:
 				continue 
 
 			if d["type_of_auction"] == "English":
-				choices.append("{}  -> {} [Min:{}]".format(
-					str(d["serialNumber"]), d["name"], d["highestBid"]["bidValue"] if d["highestBid"] != None else "0"))
+				choices.append("{}  -> {} [Min:{}] ({})".format(
+					str(d["serialNumber"]), 
+					d["name"], 
+					d["highestBid"]["bidValue"] if d["highestBid"] != None and d["highestBid"] != 0 else "0",
+					d["type_of_auction"] ))
 
 			else:
-				choices.append("{} -> {}".format(
-					str(d["serialNumber"]), d["name"]))
+				choices.append("{} -> {} ({})".format(
+					str(d["serialNumber"]), 
+					d["name"],
+					d["type_of_auction"]))
+
+		if len(choices) == 0:
+			log.info("No active auctions were found!")
+			return
 
 		questions = [
 			{
@@ -296,13 +330,17 @@ class ClientCli:
 		# Get the id portion of the string
 		serialNumber = answers["auction"].split(" -> ")[0].strip()
 
-		try:
-			# if int(answers["bid"]) <= 
-			self.__client.sendCreateBidRequest(serialNumber, answers["bid"])
-			log.info("Successfully created bid!")
+		target_auction = [d for d in auctions if str(d["serialNumber"]) == str(serialNumber)][0]
 
-		except Exception as e:
-			log.warning(str(e))
+		print(target_auction)
+
+		# try:
+			# if int(answers["bid"]) <= 
+		self.__client.sendCreateBidRequest(serialNumber, answers["bid"], target_auction["type_of_auction"])
+		log.info("Successfully created bid!")
+
+		# except Exception as e:
+		# 	log.warning(str(e))
 
 	def getMinValue(self, choices, answer, auctions):
 		# Get the id portion of the string
@@ -314,7 +352,17 @@ class ClientCli:
 			return "1"
 
 		log.high_debug(target_auction)
-		return str(int(target_auction["minBidValue"])+1)		
+		return str(int(target_auction["minBidValue"]))
+
+	def handleCmdListClientBids(self):
+		bids = self.__client.showClientBids()
+
+		for b in bids:
+			print("Bid {} on {} ".format(b[1], b[0]))
+
+
+	def handleCmdListAuctionBids(self):
+		pass
 
 	### Handles list bids command, filtered by client-sn or all 
 	def handleCmdListBids(self, bids_filter="client"):
@@ -376,8 +424,7 @@ class ClientCli:
 
 		# Join serial number and name as the name may not be unique
 		choices = [str(d["serialNumber"]) + " -> " + d["name"] for d in auctions]
-		questions = [
-			{
+		questions = [{
 			'type': 'rawlist',
 			'message': 'Choose the auction whose outcome you want to see',
 			'name': 'auction',
@@ -406,5 +453,53 @@ class ClientCli:
 		else:
 			print ("Nobody bet on Auction '{}'".format(target_auction["name"]))
 
+	# Handles receipt validation command
+	def handleValidateReceipt(self):
+		log.high_debug("Hit handleValidateReceipt!")
+
+		# Join serial number and name as the name may not be unique
+		# choices = [str(d["serialNumber"]) + " -> " + d["name"] for d in auctions]
+		receipts = self.__client.loadCurrentClientReceipts()
+
+		log.high_debug("CHOiceS:\n" + str(receipts))
+
+		if receipts == None or len(receipts) == 0:
+			log.warning("No receipts were found!")
+			return
+
+		choices = []
+
+		for r in receipts:
+			option = "AuctionSN: {}, Bid: {}".format(r[2], r[3])
+			r.append(option)
+			choices.append(option)
+
+		questions = [{
+			'type': 'rawlist',
+			'message': 'Choose the receipt you want to validate',
+			'name': 'receipt',
+			'choices': choices,
+			'validate': lambda answer: 'You need to choose ONE receipt!' \
+				if len(answer) == 0 else True
+			}]
+
+		answers = prompt(questions, style=style)
+
+		selected_receipt = None
+
+		for r in receipts:
+			if r[-1] == answers["receipt"]:
+				selected_receipt = r[0]
+
+
+		if selected_receipt == None:
+			log.warning("Could not determine which receipt you wanted to validate! This should not happen.")
+			return
+
+		if self.__client.validateReceipt(selected_receipt):
+			log.info("Receipt successfully validated!")
+
+		else:
+			log.error("Could not validate receipt!")
 
 c = ClientCli()

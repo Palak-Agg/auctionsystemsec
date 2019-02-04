@@ -78,32 +78,38 @@ class TestAuctionClient(unittest.TestCase):
 
 		assert(result != False)
 
-	def test_list_auctions_filter_active(self):
+	# def test_list_auctions_filter_active(self):
+	# 	result = False
+
+	# 	result = self.client1.sendCreateAuctionRequest("Second", "Desc", 15, "Blind")
+
+	# 	try:
+	# 		result = self.client1.sendListAuctionsRequest("active")
+	# 		result = len(result) == 1
+
+	# 	except Exception as e:
+	# 		result = False # redundant
+
+	# 	assert(result)
+
+
+	# def test_list_auctions_filter_inactive(self):
+	# 	result = False
+
+	# 	try:
+	# 		result = self.client1.sendListAuctionsRequest("inactive")
+	# 		result = len(result) == 1
+
+	# 	except Exception as e:
+	# 		result = False # redundant
+
+	# 	assert(result)
+
+	def test_create_bid(self):
 		result = False
 
-		result = self.client1.sendCreateAuctionRequest("Second", "Desc", 15, "Blind")
-
-		try:
-			result = self.client1.sendListAuctionsRequest("active")
-			result = len(result) == 1
-
-		except Exception as e:
-			result = False # redundant
-
-		assert(result)
-
-
-	def test_list_auctions_filter_inactive(self):
-		result = False
-
-		try:
-			result = self.client1.sendListAuctionsRequest("inactive")
-			result = len(result) == 1
-
-		except Exception as e:
-			result = False # redundant
-
-		assert(result)
+		# try:
+			# result = self.
 
 	
 

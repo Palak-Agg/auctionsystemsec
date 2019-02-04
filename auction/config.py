@@ -12,14 +12,21 @@ RUNCFG = {
 
 def writeDefaults():
 	global CONFIG
+
 	CONFIG["AuctionManager"] = {
 		"IP": "127.0.0.1",
-		"PORT": 7010
+		"PORT": 7010,
+		"PUBLIC_KEY_FILE_PATH": "keys/manager_pub.pem",
+		"PRIVATE_KEY_FILE_PATH": "keys/manager_priv.pem",
+		"SECRET_TOKEN": "blingbling"
 	}
 
 	CONFIG["AuctionRepo"] = {
 		"IP": "127.0.0.1",
-		"PORT": 7020
+		"PORT": 7020,
+		"PUBLIC_KEY_FILE_PATH": "keys/repo_pub.pem",
+		"PRIVATE_KEY_FILE_PATH": "keys/repo_priv.pem",
+		"SECRET_TOKEN": "blingbling"
 	}
 
 	with open('appSettings.ini', 'w') as configFile:

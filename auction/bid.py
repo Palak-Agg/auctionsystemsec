@@ -35,23 +35,26 @@ class Bid:
 		 	value,
 			index,
 			timestamp,
-			previous_hash):
+			previous_hash,
+			receipt):
 		self.clientId = clientId
 		self.auctionSN = auctionSN
 		self.bidValue = value
 		self.index = index
 		self.timestamp = timestamp
 		self.previous_hash = previous_hash
+		self.receipt = receipt
 		self.block_hash = self.hash_block()
 
 	### Hash this block's data
 	def hash_block(self):
 		sha = hasher.sha256()
 		sha.update((str(self.clientId) + 
-					str(self.auctionSN) + 
-					str(self.bidValue) + 
-					str(self.index) + 
-					str(self.timestamp) + 
+					str(self.auctionSN) +
+					str(self.bidValue) +
+					str(self.index) +
+					str(self.timestamp) +
+					str(self.receipt) +
 					str(self.previous_hash)).encode("UTF-8"))
 
 		return sha.hexdigest()
@@ -62,6 +65,7 @@ class Bid:
 				"auctionSN": self.auctionSN,
 				"bidValue": self.bidValue,
 				"index": self.index,
+				"receipt": self.receipt,
 				"previous_hash": self.previous_hash,
 				"block_hash": self.block_hash
 				}

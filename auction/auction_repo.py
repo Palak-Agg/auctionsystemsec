@@ -7,7 +7,10 @@ import threading
 import time
 import datetime
 import traceback
-
+from pprint import pprint
+import copy
+from certificates import validate_request, sign_data_with_cc, extract_auth_certificate, get_name_from_cert, sign_data_with_priv_key, verify_signature_static_key
+from crypto_utils import *
 from auction import Auction
 
 lock = threading.Lock()
@@ -51,10 +54,14 @@ class AuctionRepo:
 				ip,
 				port))
 
+			encoded_data = serialized_data.encode("UTF-8")
+			log.debug("Sending {} bytes".format(len(encoded_data)))
+
+
 			sent_bytes = self.__socket.sendto(serialized_data.encode("UTF-8"), server_address)
 
 			self.__socket.settimeout(2)
-			response_data, server = self.__socket.recvfrom(4096)
+			response_data, server = self.__socket.recvfrom(16384)
 			log.high_debug("Received {!r}".format(response_data))
 
 		# except Exception as e:
@@ -108,7 +115,7 @@ class AuctionRepo:
 		while True:
 			log.info("Listening...")
 			self.__socket.settimeout(None)
-			data, address = self.__socket.recvfrom(4096)
+			data, address = self.__socket.recvfrom(16384)
 			decoded_data = data.decode()
 			native_data = json.loads(decoded_data)
 
@@ -173,7 +180,7 @@ class AuctionRepo:
 						datetime.datetime.utcfromtimestamp(a.endTime)))
 
 					### Determine who won. There's no need to do this now, but it makes sense
-					a.getWinningBid()
+					a.getHighestBid()
 
 			lock.release()
 
@@ -187,7 +194,6 @@ class AuctionRepo:
 	def buildResponse(self, operation, params=None):
 		data_dict = {
 			"id-type": "auction-repo",
-			"packet-type": "response",
 			"operation": operation 
 		}
 		if params != None:
@@ -199,9 +205,9 @@ class AuctionRepo:
 	def buildRequest(self, operation, params=None):
 		data_dict = {
 			"id-type": "auction-repo",
-			"packet-type": "request",
-			"operation": operation 
+			"operation": operation
 		}
+
 		if params != None:
 			data_dict.update(params)
 
@@ -219,20 +225,31 @@ class AuctionRepo:
 	### 
 	def handleCreateAuctionRequest(self, data):
 		log.high_debug("Hit handleCreateAuctionRequest!")
-		log.debug(str(data))
 
-		# TODO: VALIDATE DATA
+		log.debug("------------")
+		log.debug(data)
+
+		if not self.validate_manager_request(data):
+			log.warning("Request failed because manager failed to be verified or the signature did not match!")
+			# TODO: handle gracefully. Should send back an answer to client explaining why it failed
+			return self.buildResponse(data["operation"], { "operation-error": "Certificate or signature check failed!" })
+
+		else:
+			log.debug("Manager authenticity verified")
+
+		self.sign_data(data)
 
 		# Generate unique serial number
-		# TODO: actually generate a unique serial number 
+		# TODO: actually generate a unique serial number
+		data_dict = data["data"]
 
 		auction = Auction(
-			data["auction-name"],
+			data_dict["auction-name"],
 			self.__auctionIndex,
-			data["auction-duration"],
+			data_dict["auction-duration"],
 			time.time(),
-			data["auction-description"],
-			data["auction-type"])
+			data_dict["auction-description"],
+			data_dict["auction-type"])
 
 		self.__auctionIndex = self.__auctionIndex + 1
 
@@ -240,12 +257,15 @@ class AuctionRepo:
 		self.__auctionsList.append(auction)
 		lock.release()
 
+		# TODO: SIGN DATA FROM MANAGER
 		log.info("Operation: {} from client-sn: {} => OK [ADDED auction: {}]".format(
 			data["operation"], 
 			data["client-sn"],
-			data["auction-name"]))
+			data_dict["auction-name"]))
 
-		return self.buildResponse("create-auction")
+		log.debug(data)
+
+		return self.buildResponse("create-auction", data)
 
 	### Handles incoming delete auction request
 	def handleTerminateAuctionRequest(self, data):
@@ -255,6 +275,7 @@ class AuctionRepo:
 		lock.acquire()
 		target_auct = [d for d in self.__auctionsList if d.serialNumber == data["auction-sn"] and d.isActive]
 		lock.release()
+
 		log.high_debug("Target auctions: " + str(target_auct))
 
 		params = None
@@ -294,19 +315,23 @@ class AuctionRepo:
 
 		auctions_list = []
 		params = {}
+
+		data_dict = data["data"]
 		
 		lock.acquire()
-		if data["auctions-list-filter"] == "active":
+
+		if data_dict["auctions-list-filter"] == "active":
 			auctions_list = [d.__dict__() for d in self.__auctionsList if d.isActive] 
 
-		elif data["auctions-list-filter"] == "inactive":
+		elif data_dict["auctions-list-filter"] == "inactive":
 			auctions_list = [d.__dict__() for d in self.__auctionsList if not d.isActive]
 
-		elif data["auctions-list-filter"] == "client-outcome":
+		elif data_dict["auctions-list-filter"] == "client-outcome":
 			log.high_debug("HIT CLIENT OUTCOME FILTER")
 			for a in self.__auctionsList:
 				if a.isActive:
 					continue
+
 				# log.high_debug("DONE")
 				# log.high_debug(a.bidsList())
 				# log.high_debug([b.clientId for b in a.bidsList()])
@@ -323,7 +348,7 @@ class AuctionRepo:
 
 		log.info("Operation: {} with filter: {} from client-sn: {} => OK ".format(
 			data["operation"],
-			data["auctions-list-filter"], 
+			data_dict["auctions-list-filter"], 
 			data["client-sn"]))
 
 		return self.buildResponse("list-auctions", params)
@@ -331,31 +356,57 @@ class AuctionRepo:
 	### Handles incoming create bid request
 	def handleCreateBidRequest(self, data):
 		log.high_debug("Hit handleCreateBidRequest!")
-		log.debug("Data: " + str(data))
+		log.high_debug("Data:\n " + str(data))
+		data_dict = data["data"]
 
 		# Ask manager to validate bid
-		request_params = {
-			"auction-sn": data["auction-sn"],
-			"client-sn": data["client-sn"],
-			"bid-value": data["bid-value"]
-			}
+		# request_params = {
+		# 	"auction-sn": data_dict["auction-sn"],
+		# 	"client-sn": data["client-sn"],
+		# 	"bid-value": data_dict["bid-value"]
+		# }
 
-		request_data_dict = self.buildRequest("validate-bid", request_params)
+		# Sign and ask manager to validate client		
+		self.sign_data(data)
 
-		validate_response = self.__sendRequestAndWait("manager", request_data_dict)
+		validated_response = self.__sendRequestAndWait("manager", data)
 
-		response_params = None
+		if validated_response["bid-is-valid"] == False:
+			log.warning("Bid did not pass Manager's validation process! Dropping it...")
 
-		if validate_response["bid-is-valid"] == False:
 			# Return right away if not valid
 			response_params = {"operation-error": "Bid did not pass the validation process by the Auction Manager!"}
-			return self.buildResponse("create-bid", response_params)
 
+			response = self.buildResponse("create-bid", response_params)
 
+			# Sign again since data has been updated
+			self.sign_data(response)
+
+			return response
+
+		# Validate manager's authenticity
+		if not self.validate_manager_request(validated_response):
+
+			log.warning("Could not validate Manager's authenticity!")
+
+			# Return right away if not valid
+			response_params = {"operation-error": "Failed to verify Manager's authenticity! Aborting."}
+
+			response = self.buildResponse("create-bid", response_params)
+
+			# Sign again since data has been updated
+			self.sign_data(response)
+
+			return response
+
+		# Sign client's original packet
+		# self.sign_data(validated_response)
+
+		response_params = validated_response
 		log.debug("Auction Manager validated bid...")
 
 		try:
-			auction_sn = int(data["auction-sn"])
+			auction_sn = int(data_dict["auction-sn"])
 			matched_auctions = [d for d in self.__auctionsList if d.serialNumber == auction_sn and d.isActive]
 
 			if len(matched_auctions) == 0:
@@ -370,37 +421,42 @@ class AuctionRepo:
 			else:
 				target_auction = matched_auctions[0]
 				log.high_debug(target_auction.getMinBidValue())
+
 				# Check if greater than min
-				if target_auction.type_of_auction == "English" and int(data["bid-value"]) <= target_auction.getMinBidValue():
+				if target_auction.type_of_auction == "English" and int(data_dict["bid-value"]) <= target_auction.getMinBidValue():
 					response_params = {"operation-error": "Bid value is less or equal than the minimum value"}
 
 					log.info("Operation: {} from client-sn: {} => FAILED [Bid of: {} on auction-sn: {} <= MIN value]".format(
 						data["operation"], 
 						data["client-sn"],
-						data["bid-value"],
-						data["auction-sn"]))	
+						data_dict["bid-value"],
+						data_dict["auction-sn"]))	
 
 				else:
-					target_auction.addNewBid(data["client-sn"], data["bid-value"])
+					target_auction.addNewBid(data["client-sn"], data_dict["bid-value"], json.dumps(validated_response, sort_keys=True))
 
 					log.high_debug(target_auction)
 
 					log.info("Operation: {} from client-sn: {} => OK [Bid of: {} on auction-sn: {}]".format(
 						data["operation"], 
 						data["client-sn"],
-						data["bid-value"],
-						data["auction-sn"]))	
+						data_dict["bid-value"],
+						data_dict["auction-sn"]))
 
 		except Exception as e:
 			log.error("Operation: {} from client-sn: {} => FAILED [{}] ".format(
 				data["operation"], 
 				data["client-sn"],
 				str(e)))				
+
 			response_params = {"operation-error": "A server internal error occured!"}
 
 			log.error(str(e))
 
-		return self.buildResponse("create-bid", response_params)
+		response = self.buildResponse("create-bid", response_params)
+		# self.sign_data(response_data)
+
+		return response
 
 	### Handles incoming request to list bids filtered by client-sn or auction-sn
 	def handleListBidsRequest(self, data):
@@ -450,3 +506,35 @@ class AuctionRepo:
 		log.high_debug(params["bids-list"])
 
 		return self.buildResponse("list-bids", params)
+
+	def validate_manager_request(self, data):
+		# signed_data = copy.deepcopy(data)
+		# signed_data.pop("manager-signature")
+		# is_request_valid = verify_signature_static_key(cfg.CONFIG["AuctionManager"]["PUBLIC_KEY_FILE_PATH"], json.dumps(signed_data, sort_keys=True), bytes.fromhex(data["manager-signature"]))
+
+		# if not is_request_valid:
+			# log.warning("Request failed because client certificate failed to be verified or the signature did not match!")
+			# TODO: handle gracefully. Should send back an answer to client explaining why it failed
+			# return self.buildResponse(data["operation"], { "operation-error": "Certificate or signature check failed!" })
+
+		# Sign data with Repository priv key
+		# manager_signature = sign_data_with_priv_key(json.dumps(data, sort_keys=True), load_rsa_private_key(
+		# 	cfg.CONFIG["AuctionRepo"]["PRIVATE_KEY_FILE_PATH"]))
+
+		# data["repo-signature"] = manager_signature.hex()
+
+		signed_data = copy.deepcopy(data)
+		# signed_data.pop("client-signature", None)
+		signed_data.pop("manager-signature", None)
+
+		is_request_valid = verify_signature_static_key(cfg.CONFIG["AuctionManager"]["PUBLIC_KEY_FILE_PATH"], json.dumps(signed_data, sort_keys=True), bytes.fromhex(data["manager-signature"]))
+		log.debug("Manager authenticity verified? " + str(is_request_valid))
+		return is_request_valid
+
+	def sign_data(self, data):
+		# Sign data with Manager priv key
+		repo_signature = sign_data_with_priv_key(json.dumps(data, sort_keys=True), load_rsa_private_key(
+			cfg.CONFIG["AuctionRepo"]["PRIVATE_KEY_FILE_PATH"]))
+
+		data["repo-signature"] = repo_signature.hex()
+
